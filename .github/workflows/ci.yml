@@ -1,37 +1,37 @@
-name: CI
+name: Mobile CI - TechCare
 
 on:
   push:
-    branches: [develop]
+    branches: [ "develop" ]
   pull_request:
-    branches: [develop, main]
+    branches: [ "develop", "main" ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Configurar Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint
+      - name: Ejecutar Linter
         run: npm run lint --if-present
 
-      - name: Run unit tests
-        run: npm test -- --coverage
+      - name: Ejecutar Pruebas Unitarias
+        run: npm test -- --coverage --if-present
 
-      - name: Build
+      - name: Verificar Compilación (Build)
         run: npm run build
 
-      - name: Upload build artifact
+      - name: Subir artefacto de compilación
         uses: actions/upload-artifact@v4
         with:
           name: dist
