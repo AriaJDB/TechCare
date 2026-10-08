@@ -1,73 +1,75 @@
-# TechCare
+# React + TypeScript + Vite
 
-![CI](https://github.com/ORG/techcare/actions/workflows/ci.yml/badge.svg)
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-Sistema móvil de gestión de mantenimiento preventivo y trazabilidad técnica para equipos de cómputo (laptops, desktops, servidores), dirigido a técnicos y administradores de TI. Permite registrar equipos con código QR, ejecutar checklists guiados de servicio, documentar evidencia fotográfica, calcular automáticamente el próximo mantenimiento y detectar fallas recurrentes por subsistema.
+Currently, two official plugins are available:
 
-**Materia:** Desarrollo Móvil Integral — Décimo Cuatrimestre, DS03SV-25
-**Universidad Tecnológica de San Juan del Río**
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Equipo
+## React Compiler
 
-| Integrante | Rol Scrum |
-|---|---|
-| Ariadna Juárez Argüello | Product Owner |
-| Cinthia López Álvarez | Scrum Master |
-| Gabriel Flores Argüello | Developer Full Stack |
-| Edgar Alegría Alcántara | Development Team |
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Stack
+## Expanding the ESLint configuration
 
-- **Frontend:** React + Vite + TypeScript, empaquetado a móvil con Capacitor (Android/iOS)
-- **Backend / BaaS:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
-- **Monitoreo:** Firebase Crashlytics / Sentry
-- **Distribución:** Firebase App Distribution (alfa/beta), Google Play Console (producción)
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Cómo construir y ejecutar
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-```bash
-npm install
-npm run dev          # servidor de desarrollo (Vite)
-npm run build         # build de producción
-npx cap sync           # sincroniza el build web al proyecto nativo
-npx cap open android   # abre el proyecto en Android Studio
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+
 ```
 
-Variables de entorno requeridas en `.env` (ver `.env.example`):
+You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 
 ```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-```
-
-## Estructura del repositorio
-
-```
-/docs      # documentación del proyecto (planeación, plan DevOps)
-/app       # código de la app móvil (React + Vite + Capacitor)
-/ci        # scripts auxiliares de CI
-README.md
-```
-
-## Ramas y versionamiento
-
-- `main` — estable, protegida, solo recibe merges vía Pull Request aprobado
-- `develop` — integración de funcionalidades terminadas
-- `feature/*`, `bugfix/*`, `hotfix/*` — ramas de trabajo (`tipo/nombre-corto-descriptivo`)
-- Commits siguiendo [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, …)
-- Tags semánticos `v0.x.y` al cerrar una versión estable
-
-Detalle completo en [`docs/Plan_DevOps_TechCare.docx`](docs/Plan_DevOps_TechCare.docx).
-
-## Board y planeación
-
-- Tablón de trabajo: GitHub Projects — columnas Backlog, To-Do, In-Progress, Review, Done
-- Documento de planeación Scrum y Plan DevOps: carpeta `/docs`
-
-## Comunicación
-
-El equipo usa **Discord** como herramienta principal (ver dictamen en `docs/Plan_DevOps_TechCare.docx`, Anexo A). Canales: `#anuncios`, `#dev`, `#qa`, `#ops`, `#dudas`, `#random`.
-
-## Demo
-
-Enlace a la demo del mapa DevOps, el board y la herramienta de comunicación configurada: *(agregar enlace del video de 3–5 min)*

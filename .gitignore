@@ -1,0 +1,32 @@
+# Dependencias
+node_modules/
+
+# Archivos de compilación web y Vite
+dist/
+build/
+
+# Variables de entorno y credenciales (¡Muy importante por seguridad!)
+.env
+.env.local
+
+# Entornos nativos de Capacitor (Opcional, aunque se recomienda ignorar carpetas nativas pesadas si el equipo compila localmente, pero por práctica de Capacitor, las carpetas android/ e ios/ a veces se versionan o se ignoran. Lo estándar en Capacitor es ignorar los بنarios y builds internos, o ignorar android/ios si se regeneran con npx cap add). 
+# NOTA: En la práctica de Capacitor, carpetas como build o .gradle deben ignorarse siempre:
+android/.gradle/
+android/app/build/
+android/build/
+ios/DerivedData/
+ios/App/Pods/
+
+# Logs de npm y Gradle
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.gradle/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+*.suo
+*.iml
+.idea/
+.vscode/
