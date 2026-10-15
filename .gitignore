@@ -30,3 +30,7 @@ Thumbs.db
 *.iml
 .idea/
 .vscode/
+
+.env.test
+coverage/
+.scannerwork/

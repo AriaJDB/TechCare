@@ -1,0 +1,90 @@
+:root {
+  --ink: #0a0d14;
+  --ink-2: #161b26;
+  --blue: #1b4b91;
+  --blue-bright: #3b82f6;
+  --blue-light: #8fb8ff;
+  --white: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.62);
+}
+
+* { box-sizing: border-box; }
+
+.register-page {
+  position: relative;
+  min-height: 100%;
+  width: 100%;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(circle at 18% 18%, #1b4b91 0%, transparent 42%),
+    radial-gradient(circle at 85% 12%, #3b82f6 0%, transparent 38%),
+    linear-gradient(160deg, var(--ink) 0%, var(--ink-2) 55%, #050710 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  border-radius: 16px;
+}
+
+.register-card {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  padding: 32px 28px;
+  color: var(--white);
+}
+
+.register-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; text-align: center; }
+.header-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-bright));
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 10px;
+}
+.header-icon i { font-size: 26px; color: var(--white); }
+.register-header h1 { font-size: 19px; font-weight: 600; margin: 0; }
+.muted { font-size: 13px; color: var(--text-muted); margin: 4px 0 0; }
+.muted.small { font-size: 12px; }
+
+.field { margin-bottom: 14px; }
+.field-row { display: flex; gap: 12px; }
+.field-row .field { flex: 1; }
+.field label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+
+.input-wrap { position: relative; display: flex; align-items: center; }
+.input-wrap i.left-icon { position: absolute; left: 14px; font-size: 16px; color: var(--text-muted); pointer-events: none; }
+.input-wrap input,
+.input-wrap select {
+  width: 100%; height: 44px; padding: 0 14px 0 40px;
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06); color: var(--white);
+  font-size: 14px; outline: none; appearance: none;
+}
+.input-wrap select option { background: var(--ink-2); color: var(--white); }
+.input-wrap input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.input-wrap input:focus,
+.input-wrap select:focus { border-color: var(--blue-light); background: rgba(255, 255, 255, 0.12); }
+
+.error-msg { font-size: 12px; color: #ff9b9b; margin: -4px 0 14px; }
+
+.submit-btn {
+  width: 100%; height: 46px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-bright));
+  color: var(--white); font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 6px;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+.submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.register-card.success { text-align: center; }
+.qr-box {
+  width: 160px; height: 160px; margin: 0 auto 18px;
+  border-radius: 18px; background: white;
+  border: 1px solid rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+}
+.register-card.success h2 { font-size: 18px; margin: 0 0 4px; }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import EquiposCatalog from './components/Equipos/EquiposCatalog';
 
 export default function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -70,13 +71,7 @@ export default function App() {
     return (
       <div style={styles.phoneContainer}>
         <div style={styles.innerScreen}>
-          <div style={{ padding: '30px 20px', color: 'white', textAlign: 'center' }}>
-            <h2 style={{ color: '#ffffff' }}>Panel Principal</h2>
-            <p style={{ color: '#60a5fa', marginTop: '10px' }}>Bienvenido, {session.user.email}</p>
-            <button onClick={handleLogout} style={styles.buttonSecondary}>
-              Cerrar Sesión
-            </button>
-          </div>
+          <EquiposCatalog session={session} onLogout={handleLogout} />
         </div>
       </div>
     );
