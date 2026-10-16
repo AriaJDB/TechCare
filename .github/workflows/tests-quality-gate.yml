@@ -23,18 +23,21 @@ jobs:
       - run: npm ci
       - run: npm run test:unit -- --coverage
 
+      # SonarQube Community Build no analiza Pull Requests: solo en push
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v7 # verifica la última versión en el Marketplace
+        if: github.event_name == 'push'
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }} # debe ser accesible desde GitHub
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }} # debe ser accesible desde GitHub
 
       - name: Quality Gate (falla el pipeline si no pasa)
+        if: github.event_name == 'push'
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   integracion-api:
     name: Integración API REST (Supabase staging)
@@ -56,3 +59,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:api
+
+  # Aviso por webhook cuando falla cualquiera de los jobs anteriores
+  notificar-falla:
+    name: Notificar falla
+    needs: [unitarias-sonarqube, integracion-api]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: Enviar aviso a Discord
+        if: env.DISCORD_WEBHOOK_URL != ''
+        env:
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          msg=$(printf '❌ **Pipeline CI falló** · %s\nRama: %s · Autor: %s\n%s' "$REPO" "$BRANCH" "$ACTOR" "$RUN_URL")
+          jq -n --arg msg "$msg" '{content: $msg}' \
+            | curl -sS -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL"
+          # Slack: cambia {content: $msg} por {text: $msg} y usa el webhook de Slack
