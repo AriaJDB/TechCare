@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import QRCode from 'react-qr-code';
 import RegisterEquipmentScreen from './RegisterEquipmentScreen';
+import QRScannerScreen from './QRScannerScreen';
+import FichaTecnicaModal from './FichaTecnicaModal';
+import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
+
+type VistaActual = 'catalogo' | 'nuevo' | 'escanear';
 
 export default function EquiposCatalog({ session, onLogout }: { session: any, onLogout: () => void }) {
   const [equipos, setEquipos] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [vista, setVista] = useState<VistaActual>('catalogo');
   const [loading, setLoading] = useState(true);
   const [equipoAEditar, setEquipoAEditar] = useState<any>(null);
   const [verQR, setVerQR] = useState<string | null>(null);
+  const [equipoFicha, setEquipoFicha] = useState<any | null>(null);
 
   const fetchEquipos = async () => {
     setLoading(true);
@@ -37,12 +43,31 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
 
   const handleEdit = (equipo: any) => {
     setEquipoAEditar(equipo);
-    setShowForm(true);
+    setVista('nuevo');
   };
 
-  const handleToggleForm = () => {
-    if (showForm) setEquipoAEditar(null);
-    setShowForm(!showForm);
+  const handleDescargarCardQR = (equipo: any) => {
+    const cardEl = document.querySelector(`[data-card-qr="${equipo.id}"] svg`) as SVGSVGElement | null;
+    descargarEtiquetaQR({
+      tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
+      numero_serie: equipo.numero_serie,
+      procesador: equipo.procesador,
+      ram: equipo.ram,
+      almacenamiento: equipo.almacenamiento,
+      codigo_qr: equipo.codigo_qr
+    }, cardEl);
+  };
+
+  const handleImprimirCardQR = (equipo: any) => {
+    const cardEl = document.querySelector(`[data-card-qr="${equipo.id}"] svg`) as SVGSVGElement | null;
+    imprimirEtiquetaQR({
+      tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
+      numero_serie: equipo.numero_serie,
+      procesador: equipo.procesador,
+      ram: equipo.ram,
+      almacenamiento: equipo.almacenamiento,
+      codigo_qr: equipo.codigo_qr
+    }, cardEl);
   };
 
   useEffect(() => {
@@ -51,6 +76,7 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
 
   return (
     <div style={styles.container}>
+      {/* Encabezado Principal */}
       <div style={styles.header}>
         <div>
           <h2 style={styles.title}>Panel TechCare</h2>
@@ -61,31 +87,106 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
         </button>
       </div>
 
-      <div style={styles.catalogHeader}>
-        <h3 style={styles.sectionTitle}>Catálogo de Equipos</h3>
-        <button 
-          style={styles.toggleButton} 
-          onClick={handleToggleForm}
+      {/* Barra de Navegación / Pestañas de Sprint 4 */}
+      <div style={styles.navigationTabs}>
+        <button
+          onClick={() => { setVista('catalogo'); setEquipoAEditar(null); }}
+          style={{
+            ...styles.navTab,
+            ...(vista === 'catalogo' ? styles.navTabActive : {})
+          }}
         >
-          {showForm ? 'Volver al Catálogo' : '+ Nuevo Equipo'}
+          📋 Catálogo ({equipos.length})
+        </button>
+        <button
+          onClick={() => { setVista('escanear'); setEquipoAEditar(null); }}
+          style={{
+            ...styles.navTab,
+            ...(vista === 'escanear' ? styles.navTabActive : {})
+          }}
+        >
+          📷 Escanear QR
+        </button>
+        <button
+          onClick={() => {
+            if (vista === 'nuevo') {
+              setVista('catalogo');
+              setEquipoAEditar(null);
+            } else {
+              setEquipoAEditar(null);
+              setVista('nuevo');
+            }
+          }}
+          style={{
+            ...styles.navTab,
+            ...(vista === 'nuevo' ? styles.navTabActive : {})
+          }}
+        >
+          {vista === 'nuevo' ? 'Cancelar Alta' : '+ Nuevo Equipo'}
         </button>
       </div>
 
-      {showForm ? (
+      {/* VISTA 1: Escáner QR de Cámara (Sprint 4: HU3 / TC04 / TC05) */}
+      {vista === 'escanear' && (
+        <QRScannerScreen
+          onBack={() => setVista('catalogo')}
+          onEquipoEncontrado={(eq) => {
+            setEquipoFicha(eq);
+          }}
+          equiposDisponibles={equipos}
+        />
+      )}
+
+      {/* VISTA 2: Formulario de Registro o Edición */}
+      {vista === 'nuevo' && (
         <RegisterEquipmentScreen 
           session={session} 
-          onEquipoAgregado={() => { fetchEquipos(); setEquipoAEditar(null); setShowForm(false); }} 
+          onEquipoAgregado={() => { fetchEquipos(); setEquipoAEditar(null); setVista('catalogo'); }} 
           equipoAEditar={equipoAEditar}
-          onCancelEdit={() => { setEquipoAEditar(null); setShowForm(false); }}
+          onCancelEdit={() => { setEquipoAEditar(null); setVista('catalogo'); }}
         />
-      ) : (
+      )}
+
+      {/* VISTA 3: Catálogo General de Equipos */}
+      {vista === 'catalogo' && (
         <div style={styles.listContainer}>
+          <div style={styles.catalogHeader}>
+            <h3 style={styles.sectionTitle}>Equipos Registrados</h3>
+            <button
+              onClick={() => setVista('escanear')}
+              style={styles.quickScanBtn}
+            >
+              📷 Abrir Escáner QR
+            </button>
+          </div>
+
           {loading ? (
-            <p style={{ color: '#94a3b8', textAlign: 'center' }}>Cargando equipos...</p>
+            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '30px' }}>
+              Cargando equipos...
+            </p>
           ) : equipos.length === 0 ? (
             <div style={styles.emptyState}>
-              <span style={{ fontSize: '32px' }}>📭</span>
-              <p style={{ color: '#94a3b8', marginTop: '12px' }}>No hay equipos registrados aún.</p>
+              <span style={{ fontSize: '36px' }}>📭</span>
+              <p style={{ color: '#ffffff', fontWeight: '600', marginTop: '12px', fontSize: '15px' }}>
+                No hay equipos registrados aún
+              </p>
+              <p style={{ color: '#94a3b8', fontSize: '12px', textAlign: 'center', maxWidth: '300px' }}>
+                Da de alta un equipo con "+ Nuevo Equipo" para generar su código QR o prueba el escáner.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <button
+                  onClick={() => setVista('nuevo')}
+                  style={{ ...styles.actionBtn, backgroundColor: '#2563eb', color: '#fff', border: 'none' }}
+                >
+                  + Registrar primer equipo
+                </button>
+                <button
+                  onClick={() => setVista('escanear')}
+                  style={{ ...styles.actionBtn, backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
+                >
+                  📷 Probar Escáner QR
+                </button>
+              </div>
             </div>
           ) : (
             <div style={styles.grid}>
@@ -98,6 +199,7 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
                     </span>
                     <span style={styles.serial}>SN: {equipo.numero_serie}</span>
                   </div>
+
                   <div style={styles.specs}>
                     <div style={styles.specItem}>
                       <span style={styles.specLabel}>CPU:</span> {equipo.procesador}
@@ -106,19 +208,62 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
                       <span style={styles.specLabel}>RAM:</span> {equipo.ram}
                     </div>
                     <div style={styles.specItem}>
-                      <span style={styles.specLabel}>Storage:</span> {equipo.almacenamiento}
+                      <span style={styles.specLabel}>Disco:</span> {equipo.almacenamiento}
                     </div>
                   </div>
                   
+                  {/* Vista expandida de QR con opciones de impresión y descarga */}
                   {verQR === equipo.id && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'white', padding: '12px', borderRadius: '8px', margin: '12px 0' }}>
-                      <QRCode value={equipo.codigo_qr} size={100} />
-                      <p style={{ color: 'black', fontSize: '10px', marginTop: '8px' }}>{equipo.codigo_qr}</p>
+                    <div
+                      data-card-qr={equipo.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        background: 'white',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        margin: '14px 0',
+                        color: '#0f172a'
+                      }}
+                    >
+                      <QRCode value={equipo.codigo_qr} size={110} />
+                      <p style={{ color: '#0f172a', fontSize: '11px', fontWeight: 'bold', margin: '8px 0 2px 0' }}>
+                        SN: {equipo.numero_serie}
+                      </p>
+                      <p style={{ color: '#64748b', fontSize: '10px', margin: '0 0 10px 0', wordBreak: 'break-all' }}>
+                        {equipo.codigo_qr}
+                      </p>
+
+                      <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                        <button
+                          onClick={() => handleDescargarCardQR(equipo)}
+                          style={styles.cardDownloadBtn}
+                        >
+                          📥 Descargar QR (PNG)
+                        </button>
+                        <button
+                          onClick={() => handleImprimirCardQR(equipo)}
+                          style={styles.cardPrintBtn}
+                        >
+                          🖨️ Imprimir Etiqueta
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <button onClick={() => setVerQR(verQR === equipo.id ? null : equipo.id)} style={{...styles.actionBtn, borderColor: 'rgba(167, 139, 250, 0.3)', color: '#c4b5fd'}}>
+                  {/* Botones de acción */}
+                  <div style={styles.cardFooterActions}>
+                    <button
+                      onClick={() => setEquipoFicha(equipo)}
+                      style={{ ...styles.actionBtn, backgroundColor: 'rgba(59, 130, 246, 0.25)', borderColor: '#3b82f6', color: '#93c5fd', fontWeight: '600' }}
+                    >
+                      📋 Ficha e Historial
+                    </button>
+                    <button
+                      onClick={() => setVerQR(verQR === equipo.id ? null : equipo.id)}
+                      style={{...styles.actionBtn, borderColor: 'rgba(167, 139, 250, 0.4)', color: '#c4b5fd'}}
+                    >
                       {verQR === equipo.id ? 'Ocultar QR' : 'Ver QR'}
                     </button>
                     <button onClick={() => handleEdit(equipo)} style={styles.actionBtn}>
@@ -134,6 +279,19 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
           )}
         </div>
       )}
+
+      {/* Modal de Ficha Técnica e Historial (TC04 / TC11) */}
+      {equipoFicha && (
+        <FichaTecnicaModal
+          equipo={equipoFicha}
+          onClose={() => setEquipoFicha(null)}
+          onScanAnother={() => {
+            setEquipoFicha(null);
+            setVista('escanear');
+          }}
+          currentUserEmail={session.user.email}
+        />
+      )}
     </div>
   );
 }
@@ -141,9 +299,9 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: '560px',
     margin: '0 auto',
-    padding: '24px 20px',
+    padding: '16px 12px',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
@@ -154,56 +312,82 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '28px',
+    marginBottom: '16px',
     background: 'rgba(30, 58, 138, 0.4)',
-    padding: '16px',
+    padding: '14px 16px',
     borderRadius: '16px',
     border: '1px solid rgba(59, 130, 246, 0.3)'
   },
   title: {
     color: '#ffffff',
-    fontSize: '22px',
+    fontSize: '20px',
     fontWeight: '700',
-    margin: '0 0 4px 0'
+    margin: '0 0 2px 0'
   },
   subtitle: {
     color: '#93c5fd',
-    fontSize: '13px',
+    fontSize: '12px',
     margin: 0
   },
   logoutBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     color: '#ef4444',
     border: '1px solid rgba(239, 68, 68, 0.3)',
-    padding: '8px 14px',
+    padding: '6px 12px',
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '13px'
+    fontSize: '12px'
+  },
+  navigationTabs: {
+    display: 'flex',
+    gap: '6px',
+    marginBottom: '16px',
+    background: 'rgba(15, 23, 42, 0.7)',
+    padding: '4px',
+    borderRadius: '12px',
+    border: '1px solid rgba(96, 165, 250, 0.2)'
+  },
+  navTab: {
+    flex: 1,
+    padding: '8px 10px',
+    background: 'transparent',
+    border: 'none',
+    color: '#94a3b8',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    textAlign: 'center'
+  },
+  navTabActive: {
+    background: 'linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)',
+    color: '#ffffff',
+    boxShadow: '0 2px 8px rgba(29, 78, 216, 0.5)'
   },
   catalogHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '16px',
+    marginBottom: '14px',
     padding: '0 4px'
   },
   sectionTitle: {
     color: '#f8fafc',
-    fontSize: '18px',
+    fontSize: '16px',
     margin: 0,
     fontWeight: '600'
   },
-  toggleButton: {
+  quickScanBtn: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
     color: '#60a5fa',
     border: '1px solid #3b82f6',
-    padding: '8px 16px',
+    padding: '6px 12px',
     borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: '600',
-    fontSize: '13px',
-    transition: 'all 0.2s'
+    fontSize: '12px'
   },
   listContainer: {
     flex: 1
@@ -213,31 +397,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px 20px',
-    background: 'rgba(15, 23, 42, 0.4)',
+    padding: '36px 20px',
+    background: 'rgba(15, 23, 42, 0.45)',
     borderRadius: '16px',
     border: '1px dashed rgba(148, 163, 184, 0.3)'
   },
   grid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px'
+    gap: '14px'
   },
   card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     border: '1px solid rgba(96, 165, 250, 0.25)',
     borderRadius: '16px',
-    padding: '18px',
+    padding: '16px',
     color: '#e2e8f0',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.15)'
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    paddingBottom: '12px',
-    marginBottom: '14px'
+    paddingBottom: '10px',
+    marginBottom: '12px'
   },
   deviceType: {
     fontWeight: '600',
@@ -245,38 +429,70 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     gap: '8px',
     alignItems: 'center',
-    fontSize: '15px'
+    fontSize: '14px'
   },
   serial: {
     fontSize: '12px',
     color: '#94a3b8',
-    background: 'rgba(255,255,255,0.05)',
-    padding: '4px 8px',
+    background: 'rgba(255,255,255,0.06)',
+    padding: '3px 8px',
     borderRadius: '6px'
   },
   specs: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    gap: '6px'
   },
   specItem: {
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#cbd5e1',
     display: 'flex'
   },
   specLabel: {
     color: '#94a3b8',
-    width: '65px',
+    width: '60px',
     fontWeight: '500'
   },
+  cardFooterActions: {
+    display: 'flex',
+    gap: '6px',
+    marginTop: '12px',
+    paddingTop: '12px',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    flexWrap: 'wrap'
+  },
   actionBtn: {
-    padding: '6px 12px',
+    padding: '6px 10px',
     background: 'transparent',
     border: '1px solid rgba(147, 197, 253, 0.3)',
     borderRadius: '6px',
     color: '#93c5fd',
     cursor: 'pointer',
-    fontSize: '12px',
-    flex: 1
+    fontSize: '11px',
+    flex: 1,
+    minWidth: '65px',
+    textAlign: 'center'
+  },
+  cardDownloadBtn: {
+    flex: 1,
+    padding: '6px 8px',
+    backgroundColor: '#1e3a8a',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer'
+  },
+  cardPrintBtn: {
+    flex: 1,
+    padding: '6px 8px',
+    backgroundColor: '#f1f5f9',
+    color: '#0f172a',
+    border: '1px solid #cbd5e1',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer'
   }
 };

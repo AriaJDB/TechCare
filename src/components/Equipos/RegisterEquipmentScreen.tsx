@@ -1,12 +1,14 @@
-import { useState, FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import "./RegisterEquipmentScreen.css";
 import { supabase } from '../../supabaseClient';
 import QRCode from "react-qr-code";
+import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
 
 export default function RegisterEquipmentScreen({ session, onEquipoAgregado, equipoAEditar, onCancelEdit }: { session?: any, onEquipoAgregado?: () => void, equipoAEditar?: any, onCancelEdit?: () => void }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState<{ tipo: string; serie: string; qrCode: string } | null>(null);
+  const [saved, setSaved] = useState<{ tipo: string; serie: string; qrCode: string; procesador?: string; ram?: string; almacenamiento?: string } | null>(null);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,23 +83,82 @@ export default function RegisterEquipmentScreen({ session, onEquipoAgregado, equ
     }
 
     setLoading(false);
-    setSaved({ tipo, serie, qrCode: qrCodeValue });
+    setSaved({
+      tipo,
+      serie,
+      qrCode: qrCodeValue,
+      procesador,
+      ram,
+      almacenamiento
+    });
     if (onEquipoAgregado) onEquipoAgregado();
   }
+
+  const handleDescargar = () => {
+    if (!saved) return;
+    const svg = qrRef.current?.querySelector('svg') || null;
+    descargarEtiquetaQR({
+      tipo_dispositivo: saved.tipo,
+      numero_serie: saved.serie,
+      procesador: saved.procesador,
+      ram: saved.ram,
+      almacenamiento: saved.almacenamiento,
+      codigo_qr: saved.qrCode
+    }, svg);
+  };
+
+  const handleImprimir = () => {
+    if (!saved) return;
+    const svg = qrRef.current?.querySelector('svg') || null;
+    imprimirEtiquetaQR({
+      tipo_dispositivo: saved.tipo,
+      numero_serie: saved.serie,
+      procesador: saved.procesador,
+      ram: saved.ram,
+      almacenamiento: saved.almacenamiento,
+      codigo_qr: saved.qrCode
+    }, svg);
+  };
 
   if (saved) {
     return (
       <div className="register-page">
         <div className="register-card success">
-          <div className="qr-box">
+          <div ref={qrRef} className="qr-box" data-qr-value={saved.qrCode}>
             <QRCode value={saved.qrCode} size={130} />
           </div>
           <h2>Equipo registrado</h2>
           <p className="muted">
             {saved.tipo} · Serie {saved.serie}
           </p>
-          <p className="muted small" style={{marginBottom: '20px'}}>Código QR generado y vinculado al equipo.</p>
-          <button className="submit-btn" onClick={() => setSaved(null)}>
+          <p className="muted small" style={{marginBottom: '16px'}}>
+            Código QR generado y listo para rotular en el equipo físico.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+            <button
+              type="button"
+              className="submit-btn"
+              onClick={handleDescargar}
+              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
+            >
+              📥 Descargar Etiqueta QR (PNG)
+            </button>
+            <button
+              type="button"
+              className="submit-btn"
+              onClick={handleImprimir}
+              style={{ background: 'rgba(59, 130, 246, 0.25)', border: '1px solid rgba(96, 165, 250, 0.5)' }}
+            >
+              🖨️ Mandar a Imprimir Etiqueta
+            </button>
+          </div>
+
+          <button
+            className="submit-btn"
+            onClick={() => setSaved(null)}
+            style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', boxShadow: 'none' }}
+          >
             Registrar otro equipo
           </button>
         </div>
