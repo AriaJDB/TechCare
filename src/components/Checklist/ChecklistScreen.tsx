@@ -190,10 +190,13 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     maxWidth: '560px',
     margin: '0 auto',
-    padding: '16px',
+    padding: '16px 16px 36px 16px',
     boxSizing: 'border-box',
     color: '#f8fafc',
-    minHeight: '100%',
+    height: '100%',
+    maxHeight: '100%',
+    overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
   },
   header: {
     display: 'flex',
@@ -395,9 +398,10 @@ const styles: Record<string, React.CSSProperties> = {
   actionBar: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '12px',
     marginTop: 'auto',
-    paddingTop: '8px',
+    paddingTop: '16px',
+    paddingBottom: '24px',
   },
   primaryBtn: {
     width: '100%',

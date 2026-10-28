@@ -146,7 +146,7 @@ export default function FichaTecnicaModal({
   if (showChecklist && idOrdenActiva) {
     return (
       <div style={styles.overlay}>
-        <div style={styles.modalCard}>
+        <div style={{ ...styles.modalCard, overflowY: 'auto', maxHeight: '94vh', WebkitOverflowScrolling: 'touch' }}>
           <ChecklistScreen
             idOrden={idOrdenActiva}
             equipo={equipo}

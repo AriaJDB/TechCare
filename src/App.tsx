@@ -43,7 +43,13 @@ export default function App() {
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.');
+        if (error.message?.toLowerCase().includes('fetch') || error.status === 0) {
+          setErrorMessage('Error de conexión con el servidor. Revisa tu conexión a internet.');
+        } else if (error.message === 'Invalid login credentials') {
+          setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.');
+        } else {
+          setErrorMessage(error.message || 'Error al iniciar sesión.');
+        }
       }
     } else {
       const { error } = await supabase.auth.signUp({
