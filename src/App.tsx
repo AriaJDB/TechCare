@@ -21,6 +21,8 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [biometricUser, setBiometricUser] = useState<any>(null);
   const [autoEnrollBiometric, setAutoEnrollBiometric] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -196,13 +198,22 @@ export default function App() {
               <div style={styles.inputWrapper}>
                 <span style={styles.inputIcon}>🔒</span>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  style={styles.input}
+                  style={{ ...styles.input, paddingRight: '42px' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                  title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
               </div>
             </div>
 
@@ -212,13 +223,22 @@ export default function App() {
                 <div style={styles.inputWrapper}>
                   <span style={styles.inputIcon}>🔒</span>
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required={!isLogin}
-                    style={styles.input}
+                    style={{ ...styles.input, paddingRight: '42px' }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeButton}
+                    title={showConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  >
+                    {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
                 </div>
               </div>
             )}
@@ -233,39 +253,39 @@ export default function App() {
                   style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
                 />
                 <label htmlFor="autoEnroll" style={{ fontSize: '11px', color: '#93c5fd', cursor: 'pointer' }}>
-                  Vincular huella dactilar al iniciar sesión
+                  Vincular huella dactilar automáticamente
                 </label>
-              </div>
-            )}
-
-            {/* Botón de Inicio con Huella Dactilar (WebAuthn / Biometría) */}
-            {isLogin && (
-              <button
-                type="button"
-                onClick={handleBiometricLogin}
-                disabled={loading}
-                style={biometricUser ? styles.buttonBiometric : styles.buttonBiometricOutline}
-              >
-                <span style={{ fontSize: '18px' }}>👆</span>
-                <span>
-                  {biometricUser
-                    ? `Iniciar con Huella (${biometricUser.email?.split('@')[0]})`
-                    : 'Iniciar con Huella Dactilar'}
-                </span>
-              </button>
-            )}
-
-            {isLogin && (
-              <div style={styles.dividerRow}>
-                <span style={styles.dividerLine} />
-                <span style={styles.dividerText}>o con contraseña</span>
-                <span style={styles.dividerLine} />
               </div>
             )}
 
             <button type="submit" disabled={loading} style={styles.buttonPrimary}>
               {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Crear cuenta'}
             </button>
+
+            {/* Acceso Rápido con Huella Dactilar */}
+            {isLogin && (
+              <>
+                <div style={styles.dividerRow}>
+                  <span style={styles.dividerLine} />
+                  <span style={styles.dividerText}>o acceso biométrico</span>
+                  <span style={styles.dividerLine} />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleBiometricLogin}
+                  disabled={loading}
+                  style={biometricUser ? styles.buttonBiometric : styles.buttonBiometricOutline}
+                >
+                  <span style={{ fontSize: '20px' }}>👆</span>
+                  <span>
+                    {biometricUser
+                      ? `Entrar con Huella (${biometricUser.email?.split('@')[0]})`
+                      : 'Iniciar con Huella Dactilar'}
+                  </span>
+                </button>
+              </>
+            )}
           </form>
 
           <div style={styles.footerText}>
@@ -380,6 +400,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: 'none',
     boxSizing: 'border-box',
     boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.4)',
+  },
+  eyeButton: {
+    position: 'absolute' as const,
+    right: '10px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '16px',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#93c5fd',
+    outline: 'none',
   },
   buttonPrimary: {
     width: '100%',
