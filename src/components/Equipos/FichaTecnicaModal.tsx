@@ -3,6 +3,8 @@ import QRCode from 'react-qr-code';
 import { getHistorialEquipo, agregarMantenimiento, type MantenimientoRecord } from '../../utils/historialService';
 import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
 import { calcularProximaFecha, calcularSemaforo, type CicloMeses, type EstadoSemaforo } from '../../utils/mantenimiento';
+import { iniciarOrden } from '../../services/checklistService';
+import ChecklistScreen from '../Checklist/ChecklistScreen';
 
 interface FichaTecnicaProps {
   equipo: any;
@@ -29,6 +31,9 @@ export default function FichaTecnicaModal({
   const [tipoIntervencion, setTipoIntervencion] = useState<'preventiva' | 'correctiva'>('preventiva');
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
+  const [idOrdenActiva, setIdOrdenActiva] = useState<string | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [iniciandoServicio, setIniciandoServicio] = useState(false);
 
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
@@ -124,6 +129,38 @@ export default function FichaTecnicaModal({
     rojo: 'Mantenimiento Vencido'
   }[estadoSemaforo];
 
+  const handleIniciarServicio = async () => {
+    try {
+      setIniciandoServicio(true);
+      const idEq = equipo.id_equipo || equipo.id;
+      const orden = await iniciarOrden(idEq);
+      setIdOrdenActiva(orden.id_orden);
+      setShowChecklist(true);
+    } catch {
+      alert('No fue posible iniciar el servicio. Por favor verifique su conexión.');
+    } finally {
+      setIniciandoServicio(false);
+    }
+  };
+
+  if (showChecklist && idOrdenActiva) {
+    return (
+      <div style={styles.overlay}>
+        <div style={{ ...styles.modalCard, overflowY: 'auto', maxHeight: '94vh', WebkitOverflowScrolling: 'touch' }}>
+          <ChecklistScreen
+            idOrden={idOrdenActiva}
+            equipo={equipo}
+            onBack={() => setShowChecklist(false)}
+            onOrdenCerrada={() => {
+              setShowChecklist(false);
+              cargarHistorial();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.overlay}>
       <div style={styles.modalCard}>
@@ -203,6 +240,23 @@ export default function FichaTecnicaModal({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Sección Sprint 5 (HU4): Iniciar Servicio y Checklist */}
+          <div style={styles.serviceSection}>
+            <div style={styles.serviceSectionInfo}>
+              <h4 style={styles.serviceSectionTitle}>🛠️ Servicio Técnico y Verificaciones</h4>
+              <p style={styles.serviceSectionSub}>
+                Inicia la orden de servicio o reanuda el checklist de inspección (Parte 1: Limpieza, Ventiladores y Pasta térmica).
+              </p>
+            </div>
+            <button
+              onClick={handleIniciarServicio}
+              disabled={iniciandoServicio}
+              style={styles.iniciarServicioBtn}
+            >
+              {iniciandoServicio ? '⏳ Iniciando orden...' : '🛠️ Iniciar servicio / Abrir Checklist'}
+            </button>
           </div>
 
           {/* Sección de Historial de Mantenimientos (TC11 / HU9) */}
@@ -784,5 +838,46 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '10px',
     fontSize: '13px',
     cursor: 'pointer'
+  },
+  serviceSection: {
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e3a8a',
+    borderRadius: '14px',
+    padding: '16px',
+    marginBottom: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    boxShadow: '0 4px 12px rgba(30, 58, 138, 0.2)'
+  },
+  serviceSectionInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  },
+  serviceSectionTitle: {
+    margin: 0,
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#60a5fa'
+  },
+  serviceSectionSub: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#94a3b8',
+    lineHeight: '1.4'
+  },
+  iniciarServicioBtn: {
+    width: '100%',
+    minHeight: '48px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 4px 8px rgba(37, 99, 235, 0.3)',
+    transition: 'background 0.2s ease'
   }
 };

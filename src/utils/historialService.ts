@@ -59,6 +59,7 @@ const SEED_HISTORIAL: Omit<MantenimientoRecord, 'id' | 'id_equipo' | 'numero_ser
 
 function getLocalRecords(): MantenimientoRecord[] {
   try {
+    if (typeof localStorage === 'undefined') return [];
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     return JSON.parse(raw);
@@ -69,6 +70,7 @@ function getLocalRecords(): MantenimientoRecord[] {
 
 function saveLocalRecords(records: MantenimientoRecord[]): void {
   try {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
   } catch (err) {
     console.warn('No se pudo guardar en localStorage', err);

@@ -17,6 +17,7 @@
     "@capacitor/camera": "^8.2.5",
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capgo/capacitor-native-biometric": "^8.9.1",
     "@supabase/supabase-js": "^2.117.3",
     "html5-qrcode": "^2.3.8",
     "react": "^19.2.8",
