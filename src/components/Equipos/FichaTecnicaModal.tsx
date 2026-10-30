@@ -151,6 +151,10 @@ export default function FichaTecnicaModal({
             idOrden={idOrdenActiva}
             equipo={equipo}
             onBack={() => setShowChecklist(false)}
+            onOrdenCerrada={() => {
+              setShowChecklist(false);
+              cargarHistorial();
+            }}
           />
         </div>
       </div>

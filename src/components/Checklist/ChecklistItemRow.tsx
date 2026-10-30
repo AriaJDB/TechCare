@@ -8,6 +8,8 @@ interface ChecklistItemRowProps {
   isGuardando: boolean;
   hasError: boolean;
   onToggle: (idItem: string) => void;
+  onOpenDetails?: () => void;
+  detailsSummary?: string;
 }
 
 export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
@@ -15,14 +17,16 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
   isGuardando,
   hasError,
   onToggle,
+  onOpenDetails,
+  detailsSummary,
 }) => {
   const info = TAREAS_INFO[item.tarea] || {
     titulo: item.tarea,
     descripcion: 'Verificación técnica del servicio',
     icon: '🔧',
+    parte: 1,
   };
 
-  // Determinar estado actual de la tarea
   let estado: EstadoTarea = 'pendiente';
   if (isGuardando) {
     estado = 'guardando';
@@ -39,7 +43,6 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
     }
   };
 
-  // Formato legible de fecha de marcado
   const fechaTexto = item.fecha_marcado
     ? new Date(item.fecha_marcado).toLocaleTimeString([], {
         hour: '2-digit',
@@ -49,20 +52,22 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
 
   return (
     <div
-      role="checkbox"
-      aria-checked={item.completado}
-      aria-label={`${info.titulo}. Estado: ${estado}`}
-      tabIndex={0}
-      onClick={() => onToggle(item.id_item)}
-      onKeyDown={handleKeyDown}
       style={{
         ...styles.container,
         ...(item.completado ? styles.containerCompleted : {}),
         ...(hasError ? styles.containerError : {}),
       }}
     >
-      {/* Indicador táctil / Checkbox estilizado (mínimo 48x48px área efectiva) */}
-      <div style={styles.touchTarget}>
+      {/* Indicador táctil / Checkbox */}
+      <div
+        role="checkbox"
+        aria-checked={item.completado}
+        aria-label={`${info.titulo}. Estado: ${estado}`}
+        tabIndex={0}
+        onClick={() => onToggle(item.id_item)}
+        onKeyDown={handleKeyDown}
+        style={styles.touchTarget}
+      >
         <div
           style={{
             ...styles.checkboxBase,
@@ -85,6 +90,7 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
         <div style={styles.titleRow}>
           <span style={styles.taskIcon}>{info.icon}</span>
           <span
+            onClick={() => onToggle(item.id_item)}
             style={{
               ...styles.title,
               ...(item.completado ? styles.titleCompleted : {}),
@@ -96,6 +102,13 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
         </div>
 
         <p style={styles.description}>{info.descripcion}</p>
+
+        {/* Resumen de telemetría si existe */}
+        {detailsSummary && (
+          <div style={styles.telemetryTag}>
+            <span>📊 {detailsSummary}</span>
+          </div>
+        )}
 
         {/* Metadatos y badges de estado */}
         <div style={styles.footerRow}>
@@ -113,6 +126,20 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
           {estado === 'pendiente' && (
             <span style={styles.statusPendiente}>○ Pendiente de verificación</span>
           )}
+
+          {/* Botón de inspección detallada para tareas técnicas de Sprint 6 */}
+          {onOpenDetails && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDetails();
+              }}
+              style={styles.detailsBtn}
+            >
+              ⚙️ {item.tarea === 'puertos' ? 'Inspeccionar' : item.tarea === 'temperatura' ? 'Medir' : 'Diagnosticar'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -122,15 +149,14 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
 const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: '12px',
     padding: '12px 14px',
-    minHeight: '64px', // Excede el requisito mínimo táctil de 48px
+    minHeight: '64px',
     backgroundColor: '#1e293b',
     border: '1px solid #334155',
     borderRadius: '12px',
     marginBottom: '12px',
-    cursor: 'pointer',
     transition: 'all 0.2s ease',
     userSelect: 'none',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
@@ -147,13 +173,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: '48px',
-    minHeight: '48px',
+    minWidth: '40px',
+    minHeight: '40px',
+    cursor: 'pointer',
+    marginTop: '2px',
   },
   checkboxBase: {
-    width: '26px',
-    height: '26px',
-    borderRadius: '8px',
+    width: '24px',
+    height: '24px',
+    borderRadius: '7px',
     border: '2px solid #64748b',
     backgroundColor: '#0f172a',
     display: 'flex',
@@ -167,7 +195,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   checkboxError: {
     borderColor: '#ef4444',
-    backgroundColor: '#7f1d1d',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
   checkIcon: {
     color: '#ffffff',
@@ -175,18 +203,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
   },
   errorIcon: {
-    color: '#ffffff',
+    color: '#ef4444',
     fontSize: '14px',
     fontWeight: 'bold',
   },
   spinner: {
-    width: '14px',
-    height: '14px',
-    border: '2px solid rgba(255, 255, 255, 0.3)',
-    borderTopColor: '#38bdf8',
+    width: '12px',
+    height: '12px',
+    border: '2px solid #ffffff',
+    borderTopColor: 'transparent',
     borderRadius: '50%',
-    display: 'inline-block',
-    animation: 'spin 0.8s linear infinite',
+    animation: 'spin 0.6s linear infinite',
   },
   content: {
     flex: 1,
@@ -204,22 +231,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '16px',
   },
   title: {
-    fontSize: '15px',
+    fontSize: '14px',
     fontWeight: 600,
     color: '#f1f5f9',
+    cursor: 'pointer',
   },
   titleCompleted: {
-    color: '#cbd5e1',
+    color: '#a7f3d0',
+    textDecoration: 'line-through',
+    textDecorationColor: '#10b981',
   },
   obligatorioBadge: {
     fontSize: '10px',
-    fontWeight: 600,
+    fontWeight: 700,
     color: '#f59e0b',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
     padding: '2px 6px',
     borderRadius: '4px',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
   },
   description: {
     margin: 0,
@@ -227,24 +256,52 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#94a3b8',
     lineHeight: '1.4',
   },
-  footerRow: {
-    marginTop: '2px',
+  telemetryTag: {
+    margin: '4px 0',
+    padding: '4px 8px',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderRadius: '6px',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
+    color: '#7dd3fc',
     fontSize: '11px',
+    fontWeight: 500,
+  },
+  footerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: '6px',
+    flexWrap: 'wrap',
+    gap: '6px',
   },
   statusGuardando: {
-    color: '#38bdf8',
+    fontSize: '11px',
+    color: '#fbbf24',
     fontStyle: 'italic',
   },
   statusError: {
-    color: '#f87171',
+    fontSize: '11px',
+    color: '#fca5a5',
     fontWeight: 500,
   },
   statusCompletada: {
+    fontSize: '11px',
     color: '#34d399',
     fontWeight: 500,
   },
   statusPendiente: {
+    fontSize: '11px',
     color: '#64748b',
+  },
+  detailsBtn: {
+    backgroundColor: '#0f172a',
+    color: '#38bdf8',
+    border: '1px solid #334155',
+    borderRadius: '6px',
+    padding: '4px 10px',
+    fontSize: '11px',
+    fontWeight: 600,
+    cursor: 'pointer',
   },
 };
 

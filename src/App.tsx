@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import EquiposCatalog from './components/Equipos/EquiposCatalog';
+import {
+  isBiometricEnrolled,
+  getEnrolledUser,
+  loginWithBiometric,
+  enrollBiometric,
+} from './services/biometricAuthService';
 
 export default function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,6 +19,8 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [session, setSession] = useState<any>(null);
+  const [biometricUser, setBiometricUser] = useState<any>(null);
+  const [autoEnrollBiometric, setAutoEnrollBiometric] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -25,8 +33,35 @@ export default function App() {
       setSession(session);
     });
 
+    // Cargar usuario biométrico enrolado
+    if (isBiometricEnrolled()) {
+      const u = getEnrolledUser();
+      setBiometricUser(u);
+      if (u?.email) {
+        setEmail(u.email);
+      }
+    }
+
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleBiometricLogin = async () => {
+    setLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      const res = await loginWithBiometric();
+      if (!res.success) {
+        setErrorMessage(res.error || 'No se pudo verificar la huella.');
+      } else {
+        setSuccessMessage('¡Identidad biométrica verificada con éxito!');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error con el sensor de huella.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +76,7 @@ export default function App() {
     }
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         if (error.message?.toLowerCase().includes('fetch') || error.status === 0) {
           setErrorMessage('Error de conexión con el servidor. Revisa tu conexión a internet.');
@@ -50,6 +85,16 @@ export default function App() {
         } else {
           setErrorMessage(error.message || 'Error al iniciar sesión.');
         }
+      } else if (data?.user && autoEnrollBiometric) {
+        // Enrolar huella automáticamente para inicios subsecuentes
+        await enrollBiometric(
+          {
+            id: data.user.id,
+            email: data.user.email || email,
+            nombre: data.user.user_metadata?.nombre || '',
+          },
+          password
+        );
       }
     } else {
       const { error } = await supabase.auth.signUp({
@@ -175,6 +220,46 @@ export default function App() {
                     style={styles.input}
                   />
                 </div>
+              </div>
+            )}
+
+            {isLogin && (
+              <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="autoEnroll"
+                  checked={autoEnrollBiometric}
+                  onChange={(e) => setAutoEnrollBiometric(e.target.checked)}
+                  style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                />
+                <label htmlFor="autoEnroll" style={{ fontSize: '11px', color: '#93c5fd', cursor: 'pointer' }}>
+                  Vincular huella dactilar al iniciar sesión
+                </label>
+              </div>
+            )}
+
+            {/* Botón de Inicio con Huella Dactilar (WebAuthn / Biometría) */}
+            {isLogin && (
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={loading}
+                style={biometricUser ? styles.buttonBiometric : styles.buttonBiometricOutline}
+              >
+                <span style={{ fontSize: '18px' }}>👆</span>
+                <span>
+                  {biometricUser
+                    ? `Iniciar con Huella (${biometricUser.email?.split('@')[0]})`
+                    : 'Iniciar con Huella Dactilar'}
+                </span>
+              </button>
+            )}
+
+            {isLogin && (
+              <div style={styles.dividerRow}>
+                <span style={styles.dividerLine} />
+                <span style={styles.dividerText}>o con contraseña</span>
+                <span style={styles.dividerLine} />
               </div>
             )}
 
@@ -309,6 +394,56 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginTop: '6px',
     boxShadow: '0 10px 20px -5px rgba(29, 78, 216, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
     letterSpacing: '0.3px',
+  },
+  buttonBiometric: {
+    width: '100%',
+    padding: '12px',
+    background: 'linear-gradient(180deg, #059669 0%, #047857 100%)',
+    color: '#ffffff',
+    border: '1px solid rgba(16, 185, 129, 0.4)',
+    borderRadius: '14px',
+    fontSize: '14px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    boxShadow: '0 10px 20px -5px rgba(5, 150, 105, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
+    transition: 'all 0.2s ease',
+  },
+  buttonBiometricOutline: {
+    width: '100%',
+    padding: '10px',
+    backgroundColor: 'rgba(5, 150, 105, 0.15)',
+    color: '#34d399',
+    border: '1.5px dashed #059669',
+    borderRadius: '14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+  },
+  dividerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+    margin: '12px 0 6px 0',
+    gap: '8px',
+  },
+  dividerLine: {
+    flex: 1,
+    height: '1px',
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  dividerText: {
+    fontSize: '11px',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
   },
   buttonSecondary: {
     marginTop: '20px',

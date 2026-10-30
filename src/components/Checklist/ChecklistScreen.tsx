@@ -2,90 +2,131 @@ import React, { useState } from 'react';
 import { useChecklist } from '../../hooks/useChecklist';
 import { ProgressBar } from './ProgressBar';
 import { ChecklistItemRow } from './ChecklistItemRow';
-import { TAREAS_PARTE_1 } from '../../services/checklistService';
+import { PuertosModal } from './PuertosModal';
+import { TemperaturaModal } from './TemperaturaModal';
+import { SmartModal } from './SmartModal';
+import { CierreOrdenModal } from './CierreOrdenModal';
 
 interface ChecklistScreenProps {
   idOrden: string;
   equipo: {
-    id_equipo?: string;
     id?: string;
     numero_serie?: string;
     tipo_dispositivo?: string;
     procesador?: string;
     ram?: string;
-    codigo_qr?: string;
+    almacenamiento?: string;
   };
   onBack: () => void;
+  onOrdenCerrada?: () => void;
 }
 
 export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
   idOrden,
   equipo,
   onBack,
+  onOrdenCerrada,
 }) => {
   const {
     items,
+    itemsParte1,
+    itemsParte2,
     loading,
     error,
     isOffline,
     progreso,
+    progresoParte1,
+    progresoParte2,
     parte1Completa,
+    isChecklistCompleto,
+    puertosData,
+    temperaturaData,
+    smartData,
     guardandoMap,
     errorMap,
     toggleTarea,
     guardarAvance,
+    guardarPuertos,
+    guardarTemperatura,
+    guardarSmart,
+    cerrarOrden,
     recargar,
   } = useChecklist(idOrden);
 
+  const [activeTab, setActiveTab] = useState<'todas' | 'parte1' | 'parte2'>('todas');
+  const [activeModal, setActiveModal] = useState<
+    'puertos' | 'temperatura' | 'smart' | 'cierre' | null
+  >(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleGuardarAvance = async () => {
-    await guardarAvance();
-    setToastMessage('¡Avance guardado correctamente!');
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Filtrar exclusivamente los ítems de la Parte 1
-  const itemsParte1 = items.filter((item) => TAREAS_PARTE_1.includes(item.tarea));
+  const handleGuardarAvance = async () => {
+    await guardarAvance();
+    showToast('Avance del checklist asegurado correctamente');
+  };
+
+  const handleCierreExitoso = () => {
+    showToast('¡Orden de servicio cerrada y semáforo actualizado a VERDE!');
+    setTimeout(() => {
+      if (onOrdenCerrada) {
+        onOrdenCerrada();
+      } else {
+        onBack();
+      }
+    }, 1500);
+  };
+
+  const itemsAMostrar =
+    activeTab === 'parte1'
+      ? itemsParte1
+      : activeTab === 'parte2'
+      ? itemsParte2
+      : items;
 
   return (
     <div style={styles.screenContainer}>
-      {/* Encabezado de la Orden */}
+      {/* Cabecera */}
       <div style={styles.header}>
-        <button
-          onClick={onBack}
-          style={styles.backBtn}
-          aria-label="Volver a la ficha del equipo"
-        >
+        <button onClick={onBack} style={styles.backBtn} aria-label="Volver">
           ← Volver
         </button>
         <div style={styles.headerInfo}>
           <h2 style={styles.headerTitle}>Checklist de Servicio</h2>
-          <span style={styles.orderBadge}>Orden #{idOrden.slice(0, 8)}</span>
+          <span style={styles.orderBadge}>
+            Sprint 6 · {isChecklistCompleto ? '100% Completo' : `${progreso.porcentaje}%`}
+          </span>
         </div>
       </div>
 
-      {/* Tarjeta de Resumen del Equipo */}
+      {/* Tarjeta de Resumen del Activo */}
       <div style={styles.equipmentCard}>
         <div style={styles.equipmentIcon}>
-          {equipo.tipo_dispositivo === 'desktop' ? '🖥️' : '💻'}
+          {equipo.tipo_dispositivo === 'laptop'
+            ? '💻'
+            : equipo.tipo_dispositivo === 'desktop'
+            ? '🖥️'
+            : '🗄️'}
         </div>
         <div style={styles.equipmentDetails}>
-          <div style={styles.equipmentSerial}>
-            SN: {equipo.numero_serie || 'SN-DESCONOCIDO'}
-          </div>
-          <div style={styles.equipmentSpecs}>
-            {equipo.procesador || 'CPU'} · {equipo.ram || 'RAM'}
-          </div>
+          <span style={styles.equipmentSerial}>SN: {equipo.numero_serie}</span>
+          <span style={styles.equipmentSpecs}>
+            {[equipo.procesador, equipo.ram, equipo.almacenamiento]
+              .filter(Boolean)
+              .join(' · ') || 'Especificaciones estándar'}
+          </span>
         </div>
       </div>
 
-      {/* Banner de Modo Sin Conexión */}
+      {/* Banner de Modo Desconectado */}
       {isOffline && (
         <div style={styles.offlineBanner}>
           <span style={styles.bannerIcon}>📡</span>
           <div>
-            <strong style={styles.bannerTitle}>Modo sin conexión activo</strong>
+            <strong style={styles.bannerTitle}>Sin conexión a Internet</strong>
             <p style={styles.bannerText}>
               Los cambios se guardan localmente y se sincronizarán al recuperar la red.
             </p>
@@ -93,7 +134,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         </div>
       )}
 
-      {/* Alerta de Error Genérico */}
+      {/* Alerta de Error */}
       {error && (
         <div style={styles.errorAlert}>
           <span>⚠️ {error}</span>
@@ -103,24 +144,52 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         </div>
       )}
 
-      {/* Toast flotante de confirmación */}
+      {/* Toast Flotante */}
       {toastMessage && (
         <div style={styles.toast}>
           <span>✓ {toastMessage}</span>
         </div>
       )}
 
-      {/* Barra de Progreso */}
+      {/* Barra de Progreso Global */}
       <ProgressBar
         completadas={progreso.completadas}
         total={progreso.total}
         porcentaje={progreso.porcentaje}
       />
 
-      {/* Sección Parte 1 */}
-      <div style={styles.sectionHeader}>
-        <h3 style={styles.sectionTitle}>Parte 1: Inspección Física y Térmica</h3>
-        <span style={styles.sectionBadge}>Sprint 5 · HU4</span>
+      {/* Pestañas de Navegación por Parte */}
+      <div style={styles.tabsNav}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('todas')}
+          style={{
+            ...styles.tabBtn,
+            ...(activeTab === 'todas' ? styles.tabBtnActive : {}),
+          }}
+        >
+          Todas ({items.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('parte1')}
+          style={{
+            ...styles.tabBtn,
+            ...(activeTab === 'parte1' ? styles.tabBtnActive : {}),
+          }}
+        >
+          Parte 1: Física ({progresoParte1.porcentaje}%)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('parte2')}
+          style={{
+            ...styles.tabBtn,
+            ...(activeTab === 'parte2' ? styles.tabBtnActive : {}),
+          }}
+        >
+          Parte 2: Lógica ({progresoParte2.porcentaje}%)
+        </button>
       </div>
 
       {/* Lista de Tareas */}
@@ -128,39 +197,74 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         {loading && items.length === 0 ? (
           <div style={styles.loadingState}>
             <div style={styles.spinnerLarge} />
-            <p style={styles.loadingText}>Cargando verificaciones...</p>
+            <p style={styles.loadingText}>Cargando verificaciones técnicas...</p>
           </div>
-        ) : itemsParte1.length === 0 ? (
+        ) : itemsAMostrar.length === 0 ? (
           <div style={styles.emptyState}>
             <p style={styles.emptyText}>
-              No se encontraron verificaciones asignadas para esta orden.
+              No se encontraron verificaciones asignadas para este filtro.
             </p>
             <button onClick={recargar} style={styles.secondaryBtn}>
               Actualizar
             </button>
           </div>
         ) : (
-          itemsParte1.map((item) => (
-            <ChecklistItemRow
-              key={item.id_item}
-              item={item}
-              isGuardando={!!guardandoMap[item.id_item]}
-              hasError={!!errorMap[item.id_item]}
-              onToggle={toggleTarea}
-            />
-          ))
+          itemsAMostrar.map((item) => {
+            let detailsSummary: string | undefined;
+            let onOpenDetails: (() => void) | undefined;
+
+            if (item.tarea === 'puertos') {
+              onOpenDetails = () => setActiveModal('puertos');
+              detailsSummary = `USB: ${puertosData.usb_a.toUpperCase()}, HDMI: ${puertosData.hdmi.toUpperCase()}, Audio: ${puertosData.audio.toUpperCase()}`;
+            } else if (item.tarea === 'temperatura') {
+              onOpenDetails = () => setActiveModal('temperatura');
+              if (temperaturaData) {
+                detailsSummary = `Pre: ${temperaturaData.tempCpuPre}°C ➔ Post: ${temperaturaData.tempCpuPost}°C (Δ ${temperaturaData.deltaCpu}°C)`;
+              }
+            } else if (item.tarea === 'smart') {
+              onOpenDetails = () => setActiveModal('smart');
+              if (smartData) {
+                detailsSummary = `Salud: ${smartData.saludPorcentaje}% · ${smartData.horasEncendido}h · ${smartData.estado.toUpperCase()}`;
+              }
+            }
+
+            return (
+              <ChecklistItemRow
+                key={item.id_item}
+                item={item}
+                isGuardando={!!guardandoMap[item.id_item]}
+                hasError={!!errorMap[item.id_item]}
+                onToggle={toggleTarea}
+                onOpenDetails={onOpenDetails}
+                detailsSummary={detailsSummary}
+              />
+            );
+          })
         )}
       </div>
 
-      {/* Mensaje de finalización de Parte 1 */}
-      {parte1Completa && (
+      {/* Banners de finalización */}
+      {parte1Completa && !isChecklistCompleto && (
         <div style={styles.completionBanner}>
-          <span style={{ fontSize: '20px' }}>🎉</span>
+          <span style={{ fontSize: '20px' }}>⚡</span>
           <div>
-            <strong style={styles.completionTitle}>¡Parte 1 completada!</strong>
+            <strong style={styles.completionTitle}>Parte 1 completada</strong>
             <p style={styles.completionText}>
-              Se verificaron limpieza, ventiladores y compuesto térmico. El avance ha sido
-              asegurado.
+              Continúa con la Parte 2: puertos, temperaturas y diagnóstico SMART.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isChecklistCompleto && (
+        <div style={{ ...styles.completionBanner, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.15)' }}>
+          <span style={{ fontSize: '20px' }}>🏆</span>
+          <div>
+            <strong style={{ ...styles.completionTitle, color: '#a7f3d0' }}>
+              ¡Checklist 100% Completado!
+            </strong>
+            <p style={{ ...styles.completionText, color: '#d1fae5' }}>
+              Todas las 6 tareas obligatorias están verificadas. Ya puedes cerrar la orden de servicio.
             </p>
           </div>
         </div>
@@ -168,6 +272,18 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
 
       {/* Botonera de Acción */}
       <div style={styles.actionBar}>
+        {/* Botón de Cierre de Orden (TC06 / HU4/HU5 / HU7 / HU8) */}
+        <button
+          onClick={() => setActiveModal('cierre')}
+          style={{
+            ...styles.closeOrderBtn,
+            backgroundColor: isChecklistCompleto ? '#10b981' : '#334155',
+            color: isChecklistCompleto ? '#ffffff' : '#94a3b8',
+          }}
+        >
+          {isChecklistCompleto ? '🔒 Concluir y Cerrar Orden' : '🔒 Intentar Cerrar Orden'}
+        </button>
+
         <button
           onClick={handleGuardarAvance}
           style={styles.primaryBtn}
@@ -175,10 +291,46 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         >
           💾 Guardar avance
         </button>
+
         <button onClick={onBack} style={styles.secondaryBtn}>
           Cerrar y continuar luego
         </button>
       </div>
+
+      {/* Modales de Sprint 6 */}
+      {activeModal === 'puertos' && (
+        <PuertosModal
+          initialData={puertosData}
+          onSave={guardarPuertos}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal === 'temperatura' && (
+        <TemperaturaModal
+          initialData={temperaturaData}
+          onSave={guardarTemperatura}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal === 'smart' && (
+        <SmartModal
+          initialData={smartData}
+          onSave={guardarSmart}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {activeModal === 'cierre' && (
+        <CierreOrdenModal
+          items={items}
+          isCompleto={isChecklistCompleto}
+          onCerrarOrden={cerrarOrden}
+          onClose={() => setActiveModal(null)}
+          onSuccess={handleCierreExitoso}
+        />
+      )}
     </div>
   );
 };
@@ -228,8 +380,9 @@ const styles: Record<string, React.CSSProperties> = {
   orderBadge: {
     fontSize: '11px',
     fontWeight: 600,
-    color: '#94a3b8',
-    backgroundColor: '#334155',
+    color: '#38bdf8',
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
     padding: '2px 8px',
     borderRadius: '6px',
   },
@@ -319,24 +472,30 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     marginBottom: '12px',
   },
-  sectionHeader: {
+  tabsNav: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '10px',
+    gap: '6px',
+    marginBottom: '14px',
+    backgroundColor: '#0f172a',
+    padding: '4px',
+    borderRadius: '10px',
+    border: '1px solid #1e293b',
   },
-  sectionTitle: {
-    margin: 0,
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#e2e8f0',
-  },
-  sectionBadge: {
+  tabBtn: {
+    flex: 1,
+    padding: '8px 4px',
+    backgroundColor: 'transparent',
+    color: '#94a3b8',
+    border: 'none',
+    borderRadius: '8px',
     fontSize: '11px',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    padding: '2px 8px',
-    borderRadius: '6px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
   },
   tasksList: {
     display: 'flex',
@@ -379,51 +538,61 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '10px',
     padding: '12px 14px',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    border: '1px solid #10b981',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    border: '1px solid #38bdf8',
     borderRadius: '10px',
     marginBottom: '16px',
-    color: '#6ee7b7',
+    color: '#7dd3fc',
   },
   completionTitle: {
     fontSize: '13px',
     display: 'block',
-    color: '#a7f3d0',
+    color: '#bae6fd',
   },
   completionText: {
     margin: 0,
     fontSize: '12px',
-    color: '#d1fae5',
+    color: '#e0f2fe',
   },
   actionBar: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '10px',
     marginTop: 'auto',
     paddingTop: '16px',
     paddingBottom: '24px',
   },
+  closeOrderBtn: {
+    width: '100%',
+    minHeight: '48px',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
+    transition: 'all 0.2s ease',
+  },
   primaryBtn: {
     width: '100%',
-    minHeight: '48px', // Requisito táctil móvil
+    minHeight: '44px',
     backgroundColor: '#2563eb',
     color: '#ffffff',
     border: 'none',
     borderRadius: '10px',
-    fontSize: '15px',
+    fontSize: '14px',
     fontWeight: 600,
     cursor: 'pointer',
     boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)',
-    transition: 'background 0.2s ease',
   },
   secondaryBtn: {
     width: '100%',
-    minHeight: '44px',
+    minHeight: '40px',
     backgroundColor: 'transparent',
     color: '#94a3b8',
     border: '1px solid #334155',
     borderRadius: '10px',
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: 500,
     cursor: 'pointer',
   },

@@ -12,7 +12,8 @@ module.exports = {
       },
     ],
   },
-  testMatch: ['<rootDir>/tests/**/*.test.ts'],
+  testMatch: ['**/tests/**/*.test.ts'],
+  modulePathIgnorePatterns: ['<rootDir>/techcare'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/main.tsx'],
   coverageReporters: ['text', 'lcov'],
   // Puerta local equivalente al Quality Gate: falla si la cobertura < 80 %.
