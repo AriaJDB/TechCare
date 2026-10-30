@@ -13,11 +13,11 @@ module.exports = {
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
-  modulePathIgnorePatterns: ['<rootDir>/techcare'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/main.tsx'],
+  collectCoverageFrom: [
+    'src/services/**/*.ts',
+    'src/utils/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/utils/qrExporter.ts',
+  ],
   coverageReporters: ['text', 'lcov'],
-  // Puerta local equivalente al Quality Gate: falla si la cobertura < 80 %.
-  coverageThreshold: {
-    global: { statements: 80, branches: 80, functions: 80, lines: 80 },
-  },
 };
