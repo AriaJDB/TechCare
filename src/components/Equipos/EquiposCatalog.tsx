@@ -5,11 +5,6 @@ import RegisterEquipmentScreen from './RegisterEquipmentScreen';
 import QRScannerScreen from './QRScannerScreen';
 import FichaTecnicaModal from './FichaTecnicaModal';
 import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
-import {
-  isBiometricEnrolled,
-  enrollBiometric,
-  disableBiometric,
-} from '../../services/biometricAuthService';
 
 type VistaActual = 'catalogo' | 'nuevo' | 'escanear';
 
@@ -20,7 +15,6 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
   const [equipoAEditar, setEquipoAEditar] = useState<any>(null);
   const [verQR, setVerQR] = useState<string | null>(null);
   const [equipoFicha, setEquipoFicha] = useState<any | null>(null);
-  const [huellaActiva, setHuellaActiva] = useState(isBiometricEnrolled());
 
   const fetchEquipos = async () => {
     setLoading(true);
@@ -88,45 +82,9 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
           <h2 style={styles.title}>Panel TechCare</h2>
           <p style={styles.subtitle}>{session.user.email}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={async () => {
-              if (huellaActiva) {
-                if (window.confirm('¿Deseas desvincular el inicio de sesión con huella de este dispositivo?')) {
-                  disableBiometric();
-                  setHuellaActiva(false);
-                }
-              } else {
-                const res = await enrollBiometric({
-                  id: session.user.id,
-                  email: session.user.email,
-                  nombre: session.user.user_metadata?.nombre,
-                });
-                if (res.success) {
-                  setHuellaActiva(true);
-                  alert('¡Huella dactilar activada para este dispositivo! Ahora podrás iniciar sesión con 1 toque.');
-                } else {
-                  alert(res.error || 'No se pudo activar la huella.');
-                }
-              }
-            }}
-            style={{
-              ...styles.biometricBtn,
-              backgroundColor: huellaActiva ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-              borderColor: huellaActiva ? '#10b981' : 'rgba(255, 255, 255, 0.2)',
-              color: huellaActiva ? '#6ee7b7' : '#94a3b8',
-            }}
-            title={huellaActiva ? 'Huella activada para login rápido' : 'Activar huella dactilar'}
-          >
-            <span>👆</span>
-            <span style={{ fontSize: '11px', fontWeight: 600 }}>
-              {huellaActiva ? 'Huella Activa' : 'Activar Huella'}
-            </span>
-          </button>
-          <button onClick={onLogout} style={styles.logoutBtn}>
-            Salir
-          </button>
-        </div>
+        <button onClick={onLogout} style={styles.logoutBtn}>
+          Salir
+        </button>
       </div>
 
       {/* Barra de Navegación / Pestañas de Sprint 4 */}
@@ -370,15 +328,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#93c5fd',
     fontSize: '12px',
     margin: 0
-  },
-  biometricBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 10px',
-    border: '1px solid',
-    borderRadius: '8px',
-    cursor: 'pointer',
   },
   logoutBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',

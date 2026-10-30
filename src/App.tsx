@@ -4,9 +4,46 @@ import EquiposCatalog from './components/Equipos/EquiposCatalog';
 import {
   isBiometricEnrolled,
   getEnrolledUser,
-  loginWithBiometric,
   enrollBiometric,
+  loginWithBiometric,
 } from './services/biometricAuthService';
+
+const EyeIcon = ({ visible, size = 18, color = '#94a3b8' }: { visible: boolean; size?: number; color?: string }) => {
+  if (visible) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ display: 'block' }}
+      >
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: 'block' }}
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+};
 
 export default function App() {
   const [isLogin, setIsLogin] = useState(true);
@@ -23,6 +60,37 @@ export default function App() {
   const [autoEnrollBiometric, setAutoEnrollBiometric] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleNativeBiometricLogin = async (targetEmailParam?: string) => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    const targetEmail = (targetEmailParam || email.trim() || biometricUser?.email || '').toLowerCase().trim();
+    if (!targetEmail) {
+      setErrorMessage('Por favor ingresa tu correo para iniciar sesión con huella.');
+      return;
+    }
+
+    if (!isBiometricEnrolled(targetEmail)) {
+      setErrorMessage(`El correo "${targetEmail}" no tiene huella vinculada en este teléfono. Ingresa con contraseña primero.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await loginWithBiometric(targetEmail);
+      if (res.success) {
+        setSuccessMessage('✓ Identidad verificada con éxito');
+      } else {
+        if (res.error && !res.error.toLowerCase().includes('cancelad')) {
+          setErrorMessage(res.error);
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error en el sensor biométrico.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,29 +109,19 @@ export default function App() {
       setBiometricUser(u);
       if (u?.email) {
         setEmail(u.email);
+        // Desplegar el diálogo nativo oficial de Samsung/Android como BBVA
+        const timer = setTimeout(() => {
+          handleNativeBiometricLogin(u.email);
+        }, 550);
+        return () => {
+          clearTimeout(timer);
+          subscription.unsubscribe();
+        };
       }
     }
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const handleBiometricLogin = async () => {
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-    try {
-      const res = await loginWithBiometric();
-      if (!res.success) {
-        setErrorMessage(res.error || 'No se pudo verificar la huella.');
-      } else {
-        setSuccessMessage('¡Identidad biométrica verificada con éxito!');
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error con el sensor de huella.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,7 +270,7 @@ export default function App() {
                   title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  <EyeIcon visible={showPassword} />
                 </button>
               </div>
             </div>
@@ -237,7 +295,7 @@ export default function App() {
                     title={showConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                     aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                   >
-                    {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                    <EyeIcon visible={showConfirmPassword} />
                   </button>
                 </div>
               </div>
@@ -262,29 +320,34 @@ export default function App() {
               {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Crear cuenta'}
             </button>
 
-            {/* Acceso Rápido con Huella Dactilar */}
+            {/* Acceso con Huella Dactilar Nativa (Invoca BiometricPrompt oficial de Samsung / Android) */}
             {isLogin && (
-              <>
-                <div style={styles.dividerRow}>
-                  <span style={styles.dividerLine} />
-                  <span style={styles.dividerText}>o acceso biométrico</span>
-                  <span style={styles.dividerLine} />
-                </div>
-
+              <div style={{ marginTop: '12px', textAlign: 'center', width: '100%' }}>
                 <button
                   type="button"
-                  onClick={handleBiometricLogin}
+                  onClick={() => handleNativeBiometricLogin()}
                   disabled={loading}
-                  style={biometricUser ? styles.buttonBiometric : styles.buttonBiometricOutline}
+                  style={styles.textBiometricLink}
                 >
-                  <span style={{ fontSize: '20px' }}>👆</span>
-                  <span>
-                    {biometricUser
-                      ? `Entrar con Huella (${biometricUser.email?.split('@')[0]})`
-                      : 'Iniciar con Huella Dactilar'}
-                  </span>
+                  <svg
+                    width={15}
+                    height={15}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+                    <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+                    <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+                    <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+                    <path d="M12 2a10 10 0 0 0-9.95 9" />
+                  </svg>
+                  <span>Iniciar con huella dactilar</span>
                 </button>
-              </>
+              </div>
             )}
           </form>
 
@@ -409,13 +472,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    fontSize: '16px',
     padding: '4px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#93c5fd',
+    color: '#94a3b8',
     outline: 'none',
+  },
+  textBiometricLink: {
+    background: 'transparent',
+    border: '1px solid rgba(56, 189, 248, 0.25)',
+    color: '#38bdf8',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 14px',
+    borderRadius: '10px',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
   },
   buttonPrimary: {
     width: '100%',

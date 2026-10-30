@@ -1,18 +1,20 @@
 /**
- * Servicio de Autenticación Biométrica (Huella Dactilar / WebAuthn)
- *
- * Utiliza la API nativa Web Authentication API (W3C WebAuthn / FIDO2) y
- * Credentials Container API (navigator.credentials) para validar la huella
- * dactilar o reconocimiento biométrico del dispositivo (Windows Hello,
- * Android BiometricPrompt, Apple Touch ID / Face ID).
+ * Servicio de Autenticación Biométrica Nativa (Android BiometricPrompt / iOS LocalAuthentication)
+ * 
+ * Invoca el diálogo nativo del sistema operativo (Samsung Knox / BiometricPrompt de Android)
+ * a través de @capgo/capacitor-native-biometric para validar físicamente la huella dactilar
+ * con el hardware del teléfono (el mismo diseño y seguridad de BBVA, Revolut, Santander, etc.).
+ * 
+ * Las credenciales se almacenan cifradas en el Keystore seguro de Android aisladas por cada correo.
  */
+import { NativeBiometric, BiometryType } from '@capgo/capacitor-native-biometric';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabaseClient';
 
-const BIOMETRIC_KEY = 'techcare_biometric_config_v1';
-const BIOMETRIC_SESSION_KEY = 'techcare_biometric_session_v1';
+const BIOMETRIC_USER_PREFIX = 'techcare_bio_user_';
+const LAST_BIOMETRIC_EMAIL_KEY = 'techcare_last_biometric_email';
 
 export interface BiometricConfig {
-  credentialId: string;
   userId: string;
   email: string;
   nombre?: string;
@@ -20,40 +22,87 @@ export interface BiometricConfig {
 }
 
 /**
- * Comprueba si el hardware y navegador admiten autenticación biométrica de plataforma.
- * (Sensor de huella dactilar / Windows Hello / Touch ID / Android BiometricPrompt).
+ * Comprueba si el hardware físico del teléfono admite biometría (sensor de huella dactilar).
  */
 export async function isBiometricAvailable(): Promise<boolean> {
   try {
-    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-      return false;
+    if (Capacitor.isNativePlatform()) {
+      const result = await NativeBiometric.isAvailable();
+      return !!result.isAvailable;
     }
-    return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+
+    // Web fallback para desarrollo en navegador
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    }
+    return false;
   } catch {
     return false;
   }
 }
 
 /**
- * Comprueba si ya existe una huella dactilar registrada en este dispositivo.
+ * Obtiene información detallada del hardware biométrico disponible.
  */
-export function isBiometricEnrolled(): boolean {
+export async function getBiometricDetails(): Promise<{
+  available: boolean;
+  biometryType?: string;
+  error?: string;
+}> {
   try {
-    if (typeof localStorage === 'undefined') return false;
-    const data = localStorage.getItem(BIOMETRIC_KEY);
-    return !!data;
-  } catch {
-    return false;
+    if (Capacitor.isNativePlatform()) {
+      const result = await NativeBiometric.isAvailable();
+      return {
+        available: !!result.isAvailable,
+        biometryType: BiometryType[result.biometryType] || 'Huella dactilar',
+      };
+    }
+
+    if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      const avail = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      return { available: avail, biometryType: 'WebAuthn' };
+    }
+    return { available: false };
+  } catch (err: any) {
+    return { available: false, error: err?.message };
   }
 }
 
 /**
- * Obtiene los datos del usuario cuya huella está vinculada al dispositivo.
+ * Obtiene el último correo con huella dactilar vinculada en este teléfono.
  */
-export function getEnrolledUser(): BiometricConfig | null {
+export function getLastBiometricEmail(): string | null {
   try {
     if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(BIOMETRIC_KEY);
+    return localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Comprueba si ya existe una huella dactilar registrada para un correo específico (o para el último registrado).
+ */
+export function isBiometricEnrolled(email?: string): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    const targetEmail = (email || localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY) || '').toLowerCase().trim();
+    if (!targetEmail) return false;
+    return !!localStorage.getItem(BIOMETRIC_USER_PREFIX + targetEmail);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Obtiene los datos del usuario vinculado a la huella dactilar.
+ */
+export function getEnrolledUser(email?: string): BiometricConfig | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const targetEmail = (email || localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY) || '').toLowerCase().trim();
+    if (!targetEmail) return null;
+    const raw = localStorage.getItem(BIOMETRIC_USER_PREFIX + targetEmail);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -61,237 +110,229 @@ export function getEnrolledUser(): BiometricConfig | null {
 }
 
 /**
- * Convierte un ArrayBuffer a Base64URL string para almacenamiento seguro.
- */
-function bufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-/**
- * Convierte Base64URL string a Uint8Array.
- */
-function base64ToBuffer(base64: string): Uint8Array {
-  const padded = base64.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-/**
- * Registra / vincula la huella dactilar del usuario en el dispositivo.
- * Invoca navigator.credentials.create() para solicitar el escaneo de huella.
+ * Registra y vincula la huella dactilar del usuario en el dispositivo físico.
+ * Muestra el diálogo oficial de Samsung/Android para validar la huella real antes de vincularla.
  */
 export async function enrollBiometric(
   user: { id: string; email: string; nombre?: string },
   passwordForQuickLogin?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const available = await isBiometricAvailable();
-  if (!available) {
-    // Si el entorno no soporta hardware físico de huella dactilar (ej. emulador sin sensor),
-    // se permite un registro de credencial rápida de conveniencia como fallback
+  const normalizedEmail = user.email.toLowerCase().trim();
+
+  if (Capacitor.isNativePlatform()) {
     try {
+      // 1. Mostrar diálogo nativo del sistema para confirmar la huella física
+      await NativeBiometric.verifyIdentity({
+        reason: 'Confirma tu huella digital en el sensor de tu teléfono para vincular tu cuenta',
+        title: 'Vincular huella dactilar',
+        subtitle: 'Coloca tu dedo en el sensor de tu Samsung',
+        negativeButtonText: 'Cancelar',
+      });
+
+      // 2. Guardar credenciales de forma segura en Android Keystore asociadas al correo del usuario
+      if (passwordForQuickLogin) {
+        await NativeBiometric.setCredentials({
+          server: `techcare_${normalizedEmail}`,
+          username: normalizedEmail,
+          password: passwordForQuickLogin,
+        });
+      }
+
+      // 3. Registrar el perfil vinculado
       const config: BiometricConfig = {
-        credentialId: 'fallback_' + Date.now(),
         userId: user.id,
-        email: user.email,
-        nombre: user.nombre,
+        email: normalizedEmail,
+        nombre: user.nombre || normalizedEmail.split('@')[0],
         enrolledAt: new Date().toISOString(),
       };
-      localStorage.setItem(BIOMETRIC_KEY, JSON.stringify(config));
-      if (passwordForQuickLogin) {
-        localStorage.setItem(BIOMETRIC_SESSION_KEY, btoa(passwordForQuickLogin));
-      }
+
+      localStorage.setItem(BIOMETRIC_USER_PREFIX + normalizedEmail, JSON.stringify(config));
+      localStorage.setItem(LAST_BIOMETRIC_EMAIL_KEY, normalizedEmail);
+
       return { success: true };
-    } catch {
-      return { success: false, error: 'No se pudo almacenar la credencial biométrica localmente.' };
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('cancel') || msg.includes('Cancel') || err?.code === 16) {
+        return { success: false, error: 'Vinculación de huella cancelada por el usuario.' };
+      }
+      return { success: false, error: err?.message || 'No se pudo confirmar la huella digital en el dispositivo.' };
     }
   }
 
+  // Fallback para navegador web (desarrollo local)
   try {
-    // Desafío criptográfico aleatorio de 32 bytes
-    const challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-
-    const userIdBytes = new TextEncoder().encode(user.id || user.email);
-
-    // Opciones del estándar W3C WebAuthn
-    const creationOptions: CredentialCreationOptions = {
-      publicKey: {
-        challenge,
-        rp: {
-          name: 'TechCare Mantenimiento Móvil',
-          id: window.location.hostname || 'localhost',
-        },
-        user: {
-          id: userIdBytes,
-          name: user.email,
-          displayName: user.nombre || user.email,
-        },
-        pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },  // ES256 (estándar FIDO2)
-          { alg: -257, type: 'public-key' } // RS256
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform', // Sensor de huella o biometría del equipo
-          userVerification: 'required',        // Exige validación biométrica obligatoria
-          residentKey: 'preferred',
-        },
-        timeout: 60000,
-        attestation: 'none',
-      },
-    };
-
-    const credential = (await navigator.credentials.create(
-      creationOptions
-    )) as PublicKeyCredential | null;
-
-    if (!credential) {
-      return { success: false, error: 'No se pudo capturar la credencial de huella.' };
-    }
-
     const config: BiometricConfig = {
-      credentialId: credential.id || bufferToBase64(credential.rawId),
       userId: user.id,
-      email: user.email,
+      email: normalizedEmail,
       nombre: user.nombre,
       enrolledAt: new Date().toISOString(),
     };
-
-    localStorage.setItem(BIOMETRIC_KEY, JSON.stringify(config));
+    localStorage.setItem(BIOMETRIC_USER_PREFIX + normalizedEmail, JSON.stringify(config));
+    localStorage.setItem(LAST_BIOMETRIC_EMAIL_KEY, normalizedEmail);
     if (passwordForQuickLogin) {
-      localStorage.setItem(BIOMETRIC_SESSION_KEY, btoa(passwordForQuickLogin));
+      localStorage.setItem(`techcare_session_${normalizedEmail}`, btoa(passwordForQuickLogin));
     }
-
     return { success: true };
-  } catch (err: unknown) {
-    const errorObj = err as Error;
-    if (errorObj.name === 'NotAllowedError') {
-      return { success: false, error: 'El escaneo de huella fue cancelado o expiró.' };
-    }
-    // Fallback de conveniencia si falló la invocación WebAuthn en localhost no seguro
-    if (passwordForQuickLogin) {
-      const config: BiometricConfig = {
-        credentialId: 'fallback_' + Date.now(),
-        userId: user.id,
-        email: user.email,
-        nombre: user.nombre,
-        enrolledAt: new Date().toISOString(),
-      };
-      localStorage.setItem(BIOMETRIC_KEY, JSON.stringify(config));
-      localStorage.setItem(BIOMETRIC_SESSION_KEY, btoa(passwordForQuickLogin));
-      return { success: true };
-    }
-    return { success: false, error: errorObj.message || 'Error al vincular huella dactilar.' };
+  } catch {
+    return { success: false, error: 'No se pudo almacenar la credencial biométrica.' };
   }
 }
 
 /**
- * Inicia sesión utilizando la huella dactilar registrada.
- * Invoca navigator.credentials.get() solicitando al usuario poner el dedo en el sensor.
+ * Inicia sesión utilizando la huella dactilar nativa del sistema.
+ * 
+ * Invoca el diálogo nativo de Samsung Knox / Android BiometricPrompt:
+ * - Valida la huella contra el enclave de seguridad del teléfono.
+ * - Rechaza huellas de otras personas que no coincidan.
+ * - Aísla las credenciales por correo: si se cambia de correo, no permite entrar con otra cuenta.
  */
-export async function loginWithBiometric(): Promise<{
+export async function loginWithBiometric(requestedEmail?: string): Promise<{
   success: boolean;
   email?: string;
   error?: string;
 }> {
-  const config = getEnrolledUser();
-  if (!config) {
+  const normalizedEmail = (requestedEmail || localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY) || '').toLowerCase().trim();
+
+  if (!normalizedEmail) {
     return {
       success: false,
-      error: 'No hay ninguna huella dactilar registrada en este dispositivo.',
+      error: 'No hay ninguna huella dactilar registrada en este dispositivo. Por favor ingresa tu correo.',
     };
   }
 
-  const available = await isBiometricAvailable();
+  // Verificar que este correo específico tenga huella vinculada en este teléfono
+  const config = getEnrolledUser(normalizedEmail);
+  if (!config) {
+    return {
+      success: false,
+      error: `No hay ninguna huella dactilar registrada para "${normalizedEmail}" en este dispositivo. Ingresa con tu contraseña primero para activarla.`,
+    };
+  }
 
-  // Si WebAuthn está disponible y no es credencial de fallback
-  if (available && !config.credentialId.startsWith('fallback_')) {
+  if (Capacitor.isNativePlatform()) {
     try {
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
+      // 1. Desplegar el BiometricPrompt NATIVO del sistema operativo (Samsung / Android)
+      // Este es el diálogo real de Samsung Knox (el mismo de BBVA, Revolut, etc.)
+      await NativeBiometric.verifyIdentity({
+        reason: 'Verifica tu huella digital para acceder a tu cuenta de TechCare',
+        title: 'Iniciar sesión con huella',
+        subtitle: 'Coloca tu huella digital en el sensor de tu teléfono',
+        description: `Acceso para ${normalizedEmail}`,
+        negativeButtonText: 'Cancelar',
+      });
 
-      const credentialRawId = base64ToBuffer(config.credentialId);
+      // 2. Obtener la contraseña cifrada almacenada en el Keystore de Android para este correo
+      let password = '';
+      try {
+        const creds = await NativeBiometric.getCredentials({
+          server: `techcare_${normalizedEmail}`,
+        });
+        password = creds.password;
+      } catch (credErr) {
+        console.warn('No se encontraron credenciales en Keystore, verificando sesión activa:', credErr);
+      }
 
-      const requestOptions: CredentialRequestOptions = {
-        publicKey: {
-          challenge,
-          allowCredentials: [
-            {
-              id: credentialRawId as unknown as BufferSource,
-              type: 'public-key',
-              transports: ['internal'],
-            },
-          ],
-          userVerification: 'required',
-          timeout: 60000,
-          rpId: window.location.hostname || 'localhost',
-        },
+      if (password) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (error) {
+          return {
+            success: false,
+            error: 'La contraseña de tu cuenta cambió. Ingresa con contraseña para reactivar la huella.',
+          };
+        }
+
+        if (data.session) {
+          localStorage.setItem(LAST_BIOMETRIC_EMAIL_KEY, normalizedEmail);
+          return { success: true, email: normalizedEmail };
+        }
+      }
+
+      // Si Supabase ya tenía una sesión válida para este usuario
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user?.email?.toLowerCase() === normalizedEmail) {
+        localStorage.setItem(LAST_BIOMETRIC_EMAIL_KEY, normalizedEmail);
+        return { success: true, email: normalizedEmail };
+      }
+
+      return {
+        success: false,
+        error: 'Sesión expirada. Por favor ingresa tu contraseña una vez para reactivar la huella.',
       };
-
-      const assertion = await navigator.credentials.get(requestOptions);
-      if (!assertion) {
-        return { success: false, error: 'Verificación de huella fallida.' };
+    } catch (err: any) {
+      const msg = err?.message || '';
+      // Si el usuario presionó Cancelar en el diálogo nativo de Samsung
+      if (msg.includes('cancel') || msg.includes('Cancel') || err?.code === 16) {
+        return { success: false, error: 'Autenticación biométrica cancelada.' };
       }
-    } catch (err: unknown) {
-      const errorObj = err as Error;
-      if (errorObj.name === 'NotAllowedError') {
-        return { success: false, error: 'Verificación biométrica cancelada por el usuario.' };
+      // Si la huella no coincide (otra persona o dedo no registrado)
+      if (err?.code === 10 || msg.includes('failed') || msg.includes('No coincide') || msg.includes('not recognized')) {
+        return { success: false, error: 'Huella digital no reconocida por el dispositivo.' };
       }
-      console.warn('Fallo en aserción WebAuthn, procediendo con verificación local segura:', err);
+      return { success: false, error: err?.message || 'Error al validar la huella en el teléfono.' };
     }
   }
 
-  // Restaurar sesión o autenticar con Supabase
+  // Web fallback (navegador)
   try {
-    const rawPass = localStorage.getItem(BIOMETRIC_SESSION_KEY);
+    const rawPass = localStorage.getItem(`techcare_session_${normalizedEmail}`);
     if (rawPass) {
       const password = atob(rawPass);
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: config.email,
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
-        return { success: false, error: 'Las credenciales asociadas a la huella ya no son válidas.' };
+        return { success: false, error: 'Contraseña incorrecta o sesión expirada.' };
       }
 
       if (data.session) {
-        return { success: true, email: config.email };
+        return { success: true, email: normalizedEmail };
       }
     }
 
-    // Si Supabase ya tenía sesión guardada
     const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData?.session) {
-      return { success: true, email: config.email };
+    if (sessionData?.session?.user?.email?.toLowerCase() === normalizedEmail) {
+      return { success: true, email: normalizedEmail };
     }
 
     return {
       success: false,
-      error: 'Sesión expirada. Por favor ingresa tu contraseña una vez para reactivar la huella.',
+      error: 'Sesión expirada. Ingresa tu contraseña para reactivar.',
     };
-  } catch (err: unknown) {
-    const errorObj = err as Error;
-    return { success: false, error: errorObj.message || 'Error durante la autenticación biométrica.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Error en autenticación.' };
   }
 }
 
 /**
- * Desvincula la huella dactilar de este dispositivo.
+ * Desvincula la huella dactilar de un correo en este dispositivo.
  */
-export function disableBiometric(): void {
+export async function disableBiometric(email?: string): Promise<void> {
   try {
+    const targetEmail = (email || localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY) || '').toLowerCase().trim();
+    if (!targetEmail) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await NativeBiometric.deleteCredentials({
+          server: `techcare_${targetEmail}`,
+        });
+      } catch {
+        // Ignorar si no existía en Keystore
+      }
+    }
+
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(BIOMETRIC_KEY);
-      localStorage.removeItem(BIOMETRIC_SESSION_KEY);
+      localStorage.removeItem(BIOMETRIC_USER_PREFIX + targetEmail);
+      localStorage.removeItem(`techcare_session_${targetEmail}`);
+      if (localStorage.getItem(LAST_BIOMETRIC_EMAIL_KEY) === targetEmail) {
+        localStorage.removeItem(LAST_BIOMETRIC_EMAIL_KEY);
+      }
     }
   } catch {
     // Ignorar errores al limpiar

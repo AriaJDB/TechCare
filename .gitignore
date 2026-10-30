@@ -4,6 +4,8 @@ node_modules/
 # Archivos de compilación web y Vite
 dist/
 build/
+*.apk
+*.aab
 
 # Variables de entorno y credenciales (¡Muy importante por seguridad!)
 .env
