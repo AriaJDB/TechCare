@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import EquiposCatalog from './components/Equipos/EquiposCatalog';
+import { FirebaseCrashlytics } from '@capacitor-community/firebase-crashlytics';
 import {
   isBiometricEnrolled,
   getEnrolledUser,
@@ -109,7 +110,6 @@ export default function App() {
       setBiometricUser(u);
       if (u?.email) {
         setEmail(u.email);
-        // Desplegar el diálogo nativo oficial de Samsung/Android como BBVA
         const timer = setTimeout(() => {
           handleNativeBiometricLogin(u.email);
         }, 550);
@@ -146,7 +146,6 @@ export default function App() {
           setErrorMessage(error.message || 'Error al iniciar sesión.');
         }
       } else if (data?.user && autoEnrollBiometric) {
-        // Enrolar huella automáticamente para inicios subsecuentes
         await enrollBiometric(
           {
             id: data.user.id,
@@ -320,7 +319,6 @@ export default function App() {
               {loading ? 'Procesando...' : isLogin ? 'Iniciar Sesión' : 'Crear cuenta'}
             </button>
 
-            {/* Acceso con Huella Dactilar Nativa (Invoca BiometricPrompt oficial de Samsung / Android) */}
             {isLogin && (
               <div style={{ marginTop: '12px', textAlign: 'center', width: '100%' }}>
                 <button
@@ -350,6 +348,28 @@ export default function App() {
               </div>
             )}
           </form>
+
+          {/* Botón temporal de prueba para Crashlytics (Evidencia de Práctica UTSJR) */}
+          <div style={{ marginTop: '15px', width: '100%', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={async () => {
+                await FirebaseCrashlytics.recordException({ message: "Prueba de error desde TechCare" });
+                await FirebaseCrashlytics.crash({ message: "Crash forzado para evidencia UTSJR" });
+              }}
+              style={{
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '1px solid #ef4444',
+                color: '#fca5a5',
+                fontSize: '11px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              🧪 Forzar Crash de Prueba
+            </button>
+          </div>
 
           <div style={styles.footerText}>
             {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
@@ -507,65 +527,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 10px 20px -5px rgba(29, 78, 216, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
     letterSpacing: '0.3px',
   },
-  buttonBiometric: {
-    width: '100%',
-    padding: '12px',
-    background: 'linear-gradient(180deg, #059669 0%, #047857 100%)',
-    color: '#ffffff',
-    border: '1px solid rgba(16, 185, 129, 0.4)',
-    borderRadius: '14px',
-    fontSize: '14px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    boxShadow: '0 10px 20px -5px rgba(5, 150, 105, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
-    transition: 'all 0.2s ease',
-  },
-  buttonBiometricOutline: {
-    width: '100%',
-    padding: '10px',
-    backgroundColor: 'rgba(5, 150, 105, 0.15)',
-    color: '#34d399',
-    border: '1.5px dashed #059669',
-    borderRadius: '14px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-  },
-  dividerRow: {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    margin: '12px 0 6px 0',
-    gap: '8px',
-  },
-  dividerLine: {
-    flex: 1,
-    height: '1px',
-    backgroundColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  dividerText: {
-    fontSize: '11px',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  buttonSecondary: {
-    marginTop: '20px',
-    padding: '10px 20px',
-    backgroundColor: '#dc2626',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-  },
   errorAlert: {
     width: '100%',
     padding: '8px',
@@ -594,7 +555,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginTop: '16px',
     textAlign: 'center',
   },
-    link: {
+  link: {
     color: '#60a5fa',
     cursor: 'pointer',
     fontWeight: '600',
