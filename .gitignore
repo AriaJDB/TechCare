@@ -10,6 +10,7 @@ build/
 # Variables de entorno y credenciales (¡Muy importante por seguridad!)
 .env
 .env.local
+google-services.json
 
 # Entornos nativos de Capacitor (Opcional, aunque se recomienda ignorar carpetas nativas pesadas si el equipo compila localmente, pero por práctica de Capacitor, las carpetas android/ e ios/ a veces se versionan o se ignoran. Lo estándar en Capacitor es ignorar los بنarios y builds internos, o ignorar android/ios si se regeneran con npx cap add). 
 # NOTA: En la práctica de Capacitor, carpetas como build o .gradle deben ignorarse siempre:
