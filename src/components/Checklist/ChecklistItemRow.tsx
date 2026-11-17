@@ -23,7 +23,7 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
   const info = TAREAS_INFO[item.tarea] || {
     titulo: item.tarea,
     descripcion: 'Verificación técnica del servicio',
-    icon: '🔧',
+    icon: '01',
     parte: 1,
   };
 
@@ -88,7 +88,7 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
       {/* Contenido descriptivo de la tarea */}
       <div style={styles.content}>
         <div style={styles.titleRow}>
-          <span style={styles.taskIcon}>{info.icon}</span>
+          <span style={styles.taskNumber}>{info.icon}</span>
           <span
             onClick={() => onToggle(item.id_item)}
             style={{
@@ -106,17 +106,17 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
         {/* Resumen de telemetría si existe */}
         {detailsSummary && (
           <div style={styles.telemetryTag}>
-            <span>📊 {detailsSummary}</span>
+            <span>{detailsSummary}</span>
           </div>
         )}
 
         {/* Metadatos y badges de estado */}
         <div style={styles.footerRow}>
           {estado === 'guardando' && (
-            <span style={styles.statusGuardando}>⏳ Sincronizando con base de datos...</span>
+            <span style={styles.statusGuardando}>Sincronizando con base de datos...</span>
           )}
           {estado === 'error' && (
-            <span style={styles.statusError}>⚠️ Error de red. Toca para reintentar.</span>
+            <span style={styles.statusError}>Error de sincronización. Toca para reintentar.</span>
           )}
           {estado === 'completada' && (
             <span style={styles.statusCompletada}>
@@ -124,10 +124,10 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
             </span>
           )}
           {estado === 'pendiente' && (
-            <span style={styles.statusPendiente}>○ Pendiente de verificación</span>
+            <span style={styles.statusPendiente}>Pendiente de verificación</span>
           )}
 
-          {/* Botón de inspección detallada para tareas técnicas de Sprint 6 */}
+          {/* Botón de inspección detallada */}
           {onOpenDetails && (
             <button
               type="button"
@@ -137,7 +137,7 @@ export const ChecklistItemRow: React.FC<ChecklistItemRowProps> = ({
               }}
               style={styles.detailsBtn}
             >
-              ⚙️ {item.tarea === 'puertos' ? 'Inspeccionar' : item.tarea === 'temperatura' ? 'Medir' : 'Diagnosticar'}
+              {item.tarea === 'puertos' ? 'Inspeccionar' : item.tarea === 'temperatura' ? 'Medir' : 'Diagnosticar'}
             </button>
           )}
         </div>
@@ -151,23 +151,25 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'flex-start',
     gap: '12px',
-    padding: '12px 14px',
+    padding: '14px 16px',
     minHeight: '64px',
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
-    borderRadius: '12px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    borderRadius: '20px',
     marginBottom: '12px',
     transition: 'all 0.2s ease',
     userSelect: 'none',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+    boxShadow: '6px 6px 14px rgba(148, 166, 212, 0.28), inset 0 2px 3px #ffffff',
+    color: '#172554',
   },
   containerCompleted: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderColor: '#059669',
+    background: 'linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%)',
+    border: '1px solid #86efac',
+    boxShadow: '4px 4px 12px rgba(74, 222, 128, 0.22), inset 0 2px 3px #ffffff',
   },
   containerError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: '#ef4444',
+    background: 'linear-gradient(145deg, #fef2f2 0%, #fee2e2 100%)',
+    border: '1px solid #fca5a5',
   },
   touchTarget: {
     display: 'flex',
@@ -181,21 +183,23 @@ const styles: Record<string, React.CSSProperties> = {
   checkboxBase: {
     width: '24px',
     height: '24px',
-    borderRadius: '7px',
-    border: '2px solid #64748b',
-    backgroundColor: '#0f172a',
+    borderRadius: '8px',
+    border: '2px solid #94a3b8',
+    backgroundColor: '#ffffff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'all 0.2s ease',
+    boxShadow: 'inset 2px 2px 4px rgba(148, 166, 212, 0.35)',
   },
   checkboxChecked: {
     backgroundColor: '#10b981',
     borderColor: '#10b981',
+    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
   },
   checkboxError: {
     borderColor: '#ef4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: '#fee2e2',
   },
   checkIcon: {
     color: '#ffffff',
@@ -210,7 +214,7 @@ const styles: Record<string, React.CSSProperties> = {
   spinner: {
     width: '12px',
     height: '12px',
-    border: '2px solid #ffffff',
+    border: '2px solid #2563eb',
     borderTopColor: 'transparent',
     borderRadius: '50%',
     animation: 'spin 0.6s linear infinite',
@@ -227,44 +231,49 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '8px',
     flexWrap: 'wrap',
   },
-  taskIcon: {
-    fontSize: '16px',
+  taskNumber: {
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#2563eb',
+    background: '#dbeafe',
+    padding: '2px 7px',
+    borderRadius: '8px',
   },
   title: {
     fontSize: '14px',
-    fontWeight: 600,
-    color: '#f1f5f9',
+    fontWeight: 700,
+    color: '#172554',
     cursor: 'pointer',
   },
   titleCompleted: {
-    color: '#a7f3d0',
+    color: '#059669',
     textDecoration: 'line-through',
     textDecorationColor: '#10b981',
   },
   obligatorioBadge: {
     fontSize: '10px',
-    fontWeight: 700,
-    color: '#f59e0b',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    fontWeight: 800,
+    color: '#b45309',
+    backgroundColor: '#fef3c7',
     padding: '2px 6px',
-    borderRadius: '4px',
+    borderRadius: '6px',
     textTransform: 'uppercase',
   },
   description: {
     margin: 0,
     fontSize: '12px',
-    color: '#94a3b8',
+    color: '#475569',
     lineHeight: '1.4',
   },
   telemetryTag: {
     margin: '4px 0',
-    padding: '4px 8px',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    borderRadius: '6px',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
-    color: '#7dd3fc',
-    fontSize: '11px',
-    fontWeight: 500,
+    padding: '4px 10px',
+    backgroundColor: '#e0f2fe',
+    borderRadius: '8px',
+    border: '1px solid #bae6fd',
+    color: '#0284c7',
+    fontSize: '11.5px',
+    fontWeight: 600,
   },
   footerRow: {
     display: 'flex',
@@ -276,32 +285,36 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statusGuardando: {
     fontSize: '11px',
-    color: '#fbbf24',
+    color: '#d97706',
+    fontWeight: 600,
     fontStyle: 'italic',
   },
   statusError: {
     fontSize: '11px',
-    color: '#fca5a5',
-    fontWeight: 500,
+    color: '#dc2626',
+    fontWeight: 700,
   },
   statusCompletada: {
     fontSize: '11px',
-    color: '#34d399',
-    fontWeight: 500,
+    color: '#059669',
+    fontWeight: 700,
   },
   statusPendiente: {
     fontSize: '11px',
     color: '#64748b',
+    fontWeight: 600,
   },
   detailsBtn: {
-    backgroundColor: '#0f172a',
-    color: '#38bdf8',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    fontSize: '11px',
-    fontWeight: 600,
+    backgroundColor: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    background: '#2563eb',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '5px 12px',
+    fontSize: '11.5px',
+    fontWeight: 700,
     cursor: 'pointer',
+    boxShadow: '0 3px 8px rgba(37, 99, 235, 0.3)',
   },
 };
 

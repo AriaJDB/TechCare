@@ -99,153 +99,7 @@ function reproducirAlertaSonoraYVibracion(): void {
   }
 }
 
-/**
- * Muestra un banner visual de notificación estilo sistema móvil (Heads-Up / Lock Screen Preview)
- * en la parte superior de la pantalla para confirmar visualmente la recepción de la alerta.
- */
-function mostrarBannerNotificacionMovil(notificacion: NotificacionVencimientoPayload): void {
-  if (typeof document === 'undefined' || !document.body) return;
 
-  try {
-    const prev = document.getElementById('techcare-lockscreen-notification-banner');
-    if (prev) prev.remove();
-
-    const banner = document.createElement('div');
-    banner.id = 'techcare-lockscreen-notification-banner';
-    Object.assign(banner.style, {
-      position: 'fixed',
-      top: '14px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: 'calc(100% - 24px)',
-      maxWidth: '410px',
-      background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.96) 100%)',
-      color: '#ffffff',
-      borderRadius: '24px',
-      padding: '14px 16px',
-      zIndex: '30000',
-      boxShadow: '0 20px 45px rgba(15, 23, 42, 0.55), 0 0 0 1.5px rgba(248, 113, 113, 0.55)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      fontFamily: "'Plus Jakarta Sans', 'Segoe UI', sans-serif",
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-      cursor: 'pointer',
-      transition: 'all 0.25s ease',
-    });
-
-    const topMeta = document.createElement('div');
-    Object.assign(topMeta.style, {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      fontSize: '11px',
-      color: '#cbd5e1',
-      fontWeight: '700',
-    });
-
-    const appBrand = document.createElement('div');
-    Object.assign(appBrand.style, {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-    });
-
-    const dot = document.createElement('span');
-    Object.assign(dot.style, {
-      width: '9px',
-      height: '9px',
-      borderRadius: '50%',
-      backgroundColor: '#ef4444',
-      boxShadow: '0 0 8px #ef4444',
-      display: 'inline-block',
-    });
-
-    const brandText = document.createElement('span');
-    brandText.textContent = 'TECHCARE · ALERTA DE SISTEMA';
-    Object.assign(brandText.style, {
-      letterSpacing: '0.5px',
-      color: '#fca5a5',
-      fontWeight: '800',
-    });
-
-    appBrand.appendChild(dot);
-    appBrand.appendChild(brandText);
-
-    const timeTag = document.createElement('span');
-    timeTag.textContent = 'ahora · Pantalla de bloqueo';
-    Object.assign(timeTag.style, {
-      fontSize: '10.5px',
-      color: '#94a3b8',
-    });
-
-    topMeta.appendChild(appBrand);
-    topMeta.appendChild(timeTag);
-
-    const titleEl = document.createElement('div');
-    titleEl.textContent = notificacion.titulo || '';
-    Object.assign(titleEl.style, {
-      fontSize: '13.5px',
-      fontWeight: '800',
-      color: '#ffffff',
-      lineHeight: '1.3',
-    });
-
-    const bodyEl = document.createElement('div');
-    bodyEl.textContent = notificacion.mensaje || '';
-    Object.assign(bodyEl.style, {
-      fontSize: '12px',
-      color: '#e2e8f0',
-      lineHeight: '1.4',
-      fontWeight: '500',
-    });
-
-    const footerRow = document.createElement('div');
-    Object.assign(footerRow.style, {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: '4px',
-      paddingTop: '6px',
-      borderTop: '1px solid rgba(148, 163, 184, 0.2)',
-      fontSize: '11px',
-    });
-
-    const engBadge = document.createElement('span');
-    engBadge.textContent = `👷 Asignado a: ${notificacion.ultimoIngeniero}`;
-    Object.assign(engBadge.style, {
-      color: '#93c5fd',
-      fontWeight: '700',
-    });
-
-    const closeHint = document.createElement('span');
-    closeHint.textContent = 'Toca para descartar ✕';
-    Object.assign(closeHint.style, {
-      color: '#94a3b8',
-      fontWeight: '600',
-    });
-
-    footerRow.appendChild(engBadge);
-    footerRow.appendChild(closeHint);
-
-    banner.appendChild(topMeta);
-    banner.appendChild(titleEl);
-    banner.appendChild(bodyEl);
-    banner.appendChild(footerRow);
-
-    banner.onclick = () => banner.remove();
-    document.body.appendChild(banner);
-
-    setTimeout(() => {
-      if (banner.parentNode) {
-        banner.remove();
-      }
-    }, 8500);
-  } catch {
-    // Ignorar errores de DOM en entornos sin navegador
-  }
-}
 
 /**
  * HU8 & TC09 — Dispara una notificación push / local al teléfono (visible en pantalla de bloqueo)
@@ -260,11 +114,11 @@ export async function dispararNotificacionVencimiento(
 
   const titulo =
     payload.titulo ||
-    `🚨 Mantenimiento Urgente · ${tipo} (${serie})`;
+    `Mantenimiento Urgente: ${tipo} (${serie})`;
 
   const mensaje =
     payload.mensaje ||
-    `Atención ${ingeniero}: El equipo ${tipo} con serie ${serie} tiene su semáforo en ROJO (vencimiento: ${payload.proximaFecha}). Se requiere realizar el mantenimiento o reparación correspondiente.`;
+    `Atención ${ingeniero}: El equipo ${tipo} con serie ${serie} tiene su semáforo en ROJO (vencimiento: ${payload.proximaFecha}). Se requiere realizar el mantenimiento o revisión técnica correspondiente.`;
 
   let enviadaSistema = false;
 
@@ -344,9 +198,9 @@ export async function dispararNotificacionVencimiento(
     }
   }
 
-  // Reproducir alerta y mostrar banner estilo sistema móvil
+  // Alerta sonora y vibración háptica
   reproducirAlertaSonoraYVibracion();
-  mostrarBannerNotificacionMovil(registro);
+  // Se omite el banner interno redundante para que solo se muestre la notificación en la pantalla de bloqueo y barra de estado
 
   return registro;
 }

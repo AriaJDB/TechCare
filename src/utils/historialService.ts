@@ -338,6 +338,30 @@ export async function getHistorialEquipo(equipo: {
 export async function agregarMantenimiento(
   nuevo: Omit<MantenimientoRecord, 'id'>
 ): Promise<MantenimientoRecord> {
+  const current = getLocalRecords();
+
+  // Deduplicación 1: si ya existe un registro con el mismo id_orden
+  if (nuevo.id_orden) {
+    const yaExiste = current.find((r) => r.id_orden === nuevo.id_orden);
+    if (yaExiste) {
+      return yaExiste;
+    }
+  }
+
+  // Deduplicación 2: evitar inserciones dobles por doble clic o llamadas concurrentes
+  const duplicadoReciente = current.find((r) => {
+    const mismoEquipo =
+      (nuevo.id_equipo && r.id_equipo === nuevo.id_equipo) ||
+      (nuevo.numero_serie && r.numero_serie === nuevo.numero_serie);
+    const mismaFecha = r.fecha === nuevo.fecha;
+    const mismoDiagnostico = r.diagnostico === nuevo.diagnostico;
+    return mismoEquipo && mismaFecha && mismoDiagnostico;
+  });
+
+  if (duplicadoReciente) {
+    return duplicadoReciente;
+  }
+
   const evidencias =
     nuevo.evidencias && nuevo.evidencias.length > 0
       ? nuevo.evidencias
@@ -390,7 +414,6 @@ export async function agregarMantenimiento(
   }
 
   // Guardar en almacenamiento local
-  const current = getLocalRecords();
   saveLocalRecords([record, ...current]);
 
   return record;

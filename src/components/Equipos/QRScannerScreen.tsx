@@ -31,6 +31,7 @@ export default function QRScannerScreen({
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerContainerId = 'techcare-qr-reader';
+  const fileScanContainerId = 'techcare-file-scan-temp';
 
   const stopCamera = async () => {
     try {
@@ -44,19 +45,34 @@ export default function QRScannerScreen({
   };
 
   const handleQRScanned = async (codigo: string) => {
-    const cleanCode = codigo.trim();
+    let cleanCode = codigo.trim();
     if (!cleanCode || searching) return;
+
+    // Procesar contenido si el QR es una URL o un objeto JSON
+    if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(cleanCode);
+        cleanCode = parsed.codigo_qr || parsed.numero_serie || parsed.serie || cleanCode;
+      } catch {
+        // Usar código en texto plano
+      }
+    } else if (cleanCode.includes('/')) {
+      const parts = cleanCode.split('/');
+      cleanCode = parts[parts.length - 1] || cleanCode;
+    }
 
     setSearching(true);
     setNotFoundCode(null);
 
     try {
-      // 1. Buscar en lista precargada si existe
+      // 1. Buscar en catálogo cargado localmente
       if (equiposDisponibles.length > 0) {
         const localMatch = equiposDisponibles.find(
           (e) =>
-            e.codigo_qr === cleanCode ||
-            e.numero_serie?.toLowerCase() === cleanCode.toLowerCase()
+            (e.codigo_qr && e.codigo_qr.toLowerCase() === cleanCode.toLowerCase()) ||
+            (e.numero_serie && e.numero_serie.toLowerCase() === cleanCode.toLowerCase()) ||
+            String(e.id || '').toLowerCase() === cleanCode.toLowerCase() ||
+            (e.numero_serie && cleanCode.toLowerCase().includes(e.numero_serie.toLowerCase()))
         );
         if (localMatch) {
           await stopCamera();
@@ -124,7 +140,6 @@ export default function QRScannerScreen({
       setCameraError(null);
       setCameraActive(false);
 
-      // Detener escáner previo si estaba activo
       if (html5QrCodeRef.current) {
         try {
           if (html5QrCodeRef.current.isScanning) {
@@ -136,7 +151,7 @@ export default function QRScannerScreen({
         }
       }
 
-      // 1. Permisos nativos si está en Capacitor (Android/iOS)
+      // Permisos nativos en Capacitor Android
       if (Capacitor.isNativePlatform()) {
         try {
           const perm = await Camera.checkPermissions();
@@ -151,14 +166,12 @@ export default function QRScannerScreen({
         }
       }
 
-      // 2. Obtener lista de cámaras si no las tenemos
       let targetSource = cameraSource;
       try {
         const devices = await Html5Qrcode.getCameras();
         if (devices && devices.length > 0) {
           setAvailableCameras(devices);
           if (!targetSource) {
-            // Buscar la cámara trasera
             const rearIndex = devices.findIndex((d) => {
               const label = (d.label || '').toLowerCase();
               return (
@@ -189,13 +202,11 @@ export default function QRScannerScreen({
         targetSource = { facingMode: 'environment' };
       }
 
-      // 3. Crear escáner
       const scanner = new Html5Qrcode(scannerContainerId, {
         verbose: false,
       });
       html5QrCodeRef.current = scanner;
 
-      // Configuración de escaneo adaptable
       const qrConfig = {
         fps: 15,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -213,16 +224,14 @@ export default function QRScannerScreen({
           handleQRScanned(decodedText);
         },
         () => {
-          // Loop de escaneo de fotogramas
+          // Loop de escaneo
         }
       );
 
-      // 4. Ajustar estilos del video
       ensureVideoStyle();
       setCameraActive(true);
     } catch (err: any) {
-      console.warn('Fallo al iniciar cámara con la fuente solicitada:', err);
-      // Fallback intentando facingMode directo si falló con deviceId
+      console.warn('Fallo al iniciar cámara:', err);
       if (typeof cameraSource === 'string') {
         try {
           const scannerFallback = new Html5Qrcode(scannerContainerId, { verbose: false });
@@ -258,7 +267,6 @@ export default function QRScannerScreen({
     }
   };
 
-  // Iniciar la cámara al montar
   useEffect(() => {
     let isMounted = true;
     startCameraWithDevice();
@@ -285,6 +293,135 @@ export default function QRScannerScreen({
     await startCameraWithDevice(availableCameras[nextIndex].id);
   };
 
+  /**
+   * Decodificador robusto multi-escala para imágenes de QR y fichas técnicas completas
+   */
+  const decodificarQRDeArchivo = async (file: File): Promise<string> => {
+    let tempDiv = document.getElementById(fileScanContainerId);
+    if (!tempDiv) {
+      tempDiv = document.createElement('div');
+      tempDiv.id = fileScanContainerId;
+      tempDiv.style.position = 'fixed';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.height = '800px';
+      tempDiv.style.display = 'block';
+      document.body.appendChild(tempDiv);
+    }
+
+    const fileScanner = new Html5Qrcode(fileScanContainerId, { verbose: false });
+
+    // Intento 1: Decodificación directa del archivo original
+    try {
+      const resDirect = await fileScanner.scanFile(file, false);
+      if (resDirect) {
+        fileScanner.clear();
+        return resDirect;
+      }
+    } catch {
+      // Continuar con multi-resolución en canvas
+    }
+
+    // Intento 2: Redimensionar imagen para no saturar memoria en fotos de alta resolución de fichas
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            const targetSizes = [800, 1200, 500];
+            for (const maxDim of targetSizes) {
+              const canvas = document.createElement('canvas');
+              let w = img.width;
+              let h = img.height;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                  h = Math.round((h * maxDim) / w);
+                  w = maxDim;
+                } else {
+                  w = Math.round((w * maxDim) / h);
+                  h = maxDim;
+                }
+              }
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, w, h);
+                const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+                if (blob) {
+                  const scaledFile = new File([blob], 'scaled_scan.jpg', { type: 'image/jpeg' });
+                  try {
+                    const res = await fileScanner.scanFile(scaledFile, false);
+                    if (res) {
+                      fileScanner.clear();
+                      resolve(res);
+                      return;
+                    }
+                  } catch {
+                    // Siguiente resolución
+                  }
+                }
+              }
+            }
+
+            // Intento 3: Recorte por cuadrantes (fichas técnicas completas con QR en encabezado o pie)
+            const crops = [
+              { x: 0, y: 0, w: 1, h: 0.55 }, // mitad superior
+              { x: 0, y: 0.45, w: 1, h: 0.55 }, // mitad inferior
+              { x: 0.2, y: 0.2, w: 0.6, h: 0.6 }, // cuadrante central
+            ];
+
+            for (const crop of crops) {
+              const canvas = document.createElement('canvas');
+              const sx = Math.floor(img.width * crop.x);
+              const sy = Math.floor(img.height * crop.y);
+              const sw = Math.floor(img.width * crop.w);
+              const sh = Math.floor(img.height * crop.h);
+              canvas.width = 600;
+              canvas.height = 600;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 600, 600);
+                const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.92));
+                if (blob) {
+                  const cropFile = new File([blob], 'crop_scan.jpg', { type: 'image/jpeg' });
+                  try {
+                    const res = await fileScanner.scanFile(cropFile, false);
+                    if (res) {
+                      fileScanner.clear();
+                      resolve(res);
+                      return;
+                    }
+                  } catch {
+                    // Siguiente cuadrante
+                  }
+                }
+              }
+            }
+
+            fileScanner.clear();
+            reject(new Error('No se detectó ningún código QR en la imagen proporcionada.'));
+          } catch (innerErr) {
+            fileScanner.clear();
+            reject(innerErr);
+          }
+        };
+        img.onerror = () => {
+          fileScanner.clear();
+          reject(new Error('No se pudo cargar la imagen seleccionada.'));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        fileScanner.clear();
+        reject(new Error('Error al leer el archivo.'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -293,16 +430,11 @@ export default function QRScannerScreen({
     setNotFoundCode(null);
 
     try {
-      let scanner = html5QrCodeRef.current;
-      if (!scanner) {
-        scanner = new Html5Qrcode(scannerContainerId, { verbose: false });
-        html5QrCodeRef.current = scanner;
-      }
-      const decodedText = await scanner.scanFile(file, true);
-      handleQRScanned(decodedText);
+      const decodedText = await decodificarQRDeArchivo(file);
+      await handleQRScanned(decodedText);
     } catch (err) {
-      console.warn('No se detectó QR en el archivo cargado:', err);
-      alert('No se pudo leer ningún código QR en la imagen seleccionada. Intenta con una imagen más nítida.');
+      console.warn('Error al decodificar QR de archivo:', err);
+      alert('No se pudo detectar el código QR en la imagen o ficha seleccionada. Intenta con una imagen más clara o ingresa el número de serie abajo.');
     } finally {
       setSearching(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -326,7 +458,6 @@ export default function QRScannerScreen({
         {notFoundCode && (
           <div style={styles.notFoundAlert}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '16px' }}>⚠️</span>
               <strong style={{ fontSize: '13px' }}>Equipo no encontrado</strong>
             </div>
             <p style={{ margin: '0 0 8px 0', fontSize: '12px' }}>
@@ -345,10 +476,8 @@ export default function QRScannerScreen({
 
         {/* Visor de cámara / Escáner */}
         <div style={styles.viewfinderWrapper}>
-          {/* El contenedor techcare-qr-reader SIEMPRE permanece en el DOM para que Html5Qrcode dimensione el video correctamente */}
           <div id={scannerContainerId} style={styles.scannerHost} />
 
-          {/* Overlay de carga mientras la cámara se sincroniza */}
           {!cameraActive && (
             <div style={styles.loadingOverlay}>
               <div style={styles.spinnerIcon}>
@@ -374,10 +503,10 @@ export default function QRScannerScreen({
           {cameraActive && !searching && <div style={styles.scanLine} />}
         </div>
 
-        {/* Botón para cambiar lente si el dispositivo tiene múltiples cámaras */}
+        {/* Botón para alternar lentes */}
         {availableCameras.length > 1 && (
           <button onClick={handleSwitchCamera} style={styles.switchCamBtn}>
-            🔄 Cambiar lente ({currentCameraIndex + 1}/{availableCameras.length})
+            Cambiar lente ({currentCameraIndex + 1}/{availableCameras.length})
           </button>
         )}
 
@@ -387,17 +516,17 @@ export default function QRScannerScreen({
           </p>
         )}
 
-        {/* Mensaje si la cámara falló con opción de reintentar */}
+        {/* Mensaje de error de cámara con reintento */}
         {cameraError && (
           <div style={styles.cameraErrorBox}>
             <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 700 }}>{cameraError}</p>
             <button onClick={() => startCameraWithDevice()} style={styles.retryBtn}>
-              🔄 Reintentar encender cámara
+              Reintentar encender cámara
             </button>
           </div>
         )}
 
-        {/* Cargar imagen de archivo */}
+        {/* Cargar imagen de archivo / ficha */}
         <input
           ref={fileInputRef}
           type="file"
@@ -406,7 +535,7 @@ export default function QRScannerScreen({
           onChange={handleFileScan}
         />
         <button onClick={() => fileInputRef.current?.click()} style={styles.fileBtn}>
-          📁 Cargar foto / captura de QR
+          Cargar foto / ficha de QR
         </button>
 
         {/* Entrada manual de número de serie o código */}

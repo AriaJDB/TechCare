@@ -35,7 +35,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             background:
               porcentaje === 100
                 ? 'linear-gradient(90deg, #10b981, #059669)'
-                : 'linear-gradient(90deg, #3b82f6, #6366f1)',
+                : 'linear-gradient(90deg, #3b82f6, #2563eb)',
           }}
         />
       </div>
@@ -46,12 +46,13 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100%',
-    padding: '14px 16px',
-    backgroundColor: '#1e293b',
-    borderRadius: '12px',
-    border: '1px solid #334155',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    padding: '14px 18px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '6px 6px 16px rgba(148, 166, 212, 0.3), inset 0 2px 3px #ffffff',
     marginBottom: '16px',
+    boxSizing: 'border-box',
   },
   labelRow: {
     display: 'flex',
@@ -61,24 +62,26 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
   },
   labelTitle: {
-    color: '#94a3b8',
-    fontWeight: 500,
+    color: '#172554',
+    fontWeight: 700,
   },
   labelCount: {
-    color: '#e2e8f0',
-    fontSize: '13px',
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 600,
   },
   highlight: {
-    color: '#38bdf8',
-    fontWeight: 700,
+    color: '#2563eb',
+    fontWeight: 800,
   },
   track: {
     width: '100%',
     height: '10px',
-    backgroundColor: '#0f172a',
+    backgroundColor: '#dbeafe',
     borderRadius: '999px',
     overflow: 'hidden',
     position: 'relative',
+    boxShadow: 'inset 2px 2px 4px rgba(148, 166, 212, 0.4)',
   },
   fill: {
     height: '100%',

@@ -3,13 +3,10 @@ import type { ChecklistItem, OrdenServicio } from '../../services/checklistServi
 import { TAREAS_INFO } from '../../services/checklistService';
 import { calcularProximaFecha, type CicloMeses } from '../../utils/mantenimiento';
 import { obtenerDirectorioIngenieros, obtenerPerfilUsuario } from '../../services/perfilService';
-import { ordenServicioBus } from '../../services/ordenServicioObserver';
 
 interface CierreOrdenModalProps {
   items: ChecklistItem[];
   isCompleto: boolean;
-  equipo?: any;
-  idOrden?: string;
   onCerrarOrden: (params: {
     cicloMeses?: CicloMeses;
     diagnostico?: string;
@@ -33,8 +30,6 @@ const CAUSAS_RAIZ_SUGERIDAS = [
 export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
   items,
   isCompleto,
-  equipo,
-  idOrden,
   onCerrarOrden,
   onClose,
   onSuccess,
@@ -73,24 +68,6 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
         tecnicoResponsable: tecnico,
       });
 
-      // Emitir evento al bus Observer por si el cierre fue en modo offline/local
-      if (equipo) {
-        await ordenServicioBus.emitirOrdenCerrada({
-          idOrden: idOrden || `ord-${Date.now()}`,
-          idEquipo: equipo.id || equipo.id_equipo || 'eq-local',
-          numeroSerie: equipo.numero_serie,
-          tipoDispositivo: equipo.tipo_dispositivo,
-          codigoQr: equipo.codigo_qr,
-          fechaCierre: new Date(),
-          cicloMeses: ciclo,
-          tipoIntervencion,
-          subsistemaAtendido: subsistema,
-          diagnostico,
-          causaRaiz,
-          tecnicoResponsable: tecnico,
-        });
-      }
-
       onSuccess();
     } catch (err: any) {
       setErrorMsg(err.message || 'Error al cerrar la orden de servicio.');
@@ -104,7 +81,12 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
       <div style={styles.modalCard}>
         <div style={styles.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '22px' }}>🔒</span>
+            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
             <div>
               <h3 style={styles.title}>Cierre de Orden de Servicio</h3>
               <p style={styles.subtitle}>Programación, Semáforo y Dictamen Técnico</p>
@@ -119,7 +101,9 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
         {!isCompleto ? (
           <div style={styles.blockedBody}>
             <div style={styles.errorAlert}>
-              <span style={{ fontSize: '20px' }}>⛔</span>
+              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#dc2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '12px' }}>
+                !
+              </div>
               <div>
                 <strong style={{ fontSize: '13px', display: 'block' }}>
                   Cierre de orden bloqueado
@@ -140,7 +124,6 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
                   const info = TAREAS_INFO[p.tarea];
                   return (
                     <div key={p.id_item} style={styles.pendingItem}>
-                      <span>{info?.icon || '⚠️'}</span>
                       <span style={{ fontWeight: 700, flex: 1 }}>{info?.titulo || p.tarea}</span>
                       <span style={styles.tagPending}>Pendiente</span>
                     </div>
@@ -150,17 +133,16 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
             </div>
 
             <button type="button" onClick={onClose} style={styles.backToChecklistBtn}>
-              ➔ Volver al checklist y completar tareas
+              Volver al checklist y completar tareas
             </button>
           </div>
         ) : (
           /* FORMULARIO DE CIERRE CUANDO ESTÁ 100% COMPLETO */
           <form onSubmit={handleSubmit} style={styles.body}>
             <div style={styles.successAlert}>
-              <span style={{ fontSize: '20px' }}>🎉</span>
               <div>
                 <strong style={{ fontSize: '13px', display: 'block' }}>
-                  ¡Checklist 100% Completo!
+                  Verificaciones de Checklist Finalizadas
                 </strong>
                 <p style={{ margin: '2px 0 0 0', fontSize: '12px' }}>
                   Próxima fecha calculada ({ciclo} meses): <strong>{proximaCalculada}</strong>
@@ -170,7 +152,7 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
 
             {errorMsg && (
               <div style={styles.errorBanner}>
-                <span>⚠️ {errorMsg}</span>
+                <span>{errorMsg}</span>
               </div>
             )}
 
@@ -276,7 +258,7 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
 
             <div style={styles.footer}>
               <button type="submit" disabled={guardando} style={styles.closeOrderBtn}>
-                {guardando ? 'Cerrando orden...' : '🔒 Cerrar Orden y Actualizar Semáforo'}
+                {guardando ? 'Cerrando orden...' : 'Cerrar Orden y Actualizar Semáforo'}
               </button>
               <button type="button" onClick={onClose} style={styles.cancelBtn}>
                 Cancelar

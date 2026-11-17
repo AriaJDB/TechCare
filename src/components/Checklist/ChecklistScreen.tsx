@@ -39,7 +39,6 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
     progreso,
     progresoParte1,
     progresoParte2,
-    parte1Completa,
     isChecklistCompleto,
     puertosData,
     temperaturaData,
@@ -136,7 +135,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
       {/* Banner de Modo Desconectado */}
       {isOffline && (
         <div style={styles.offlineBanner}>
-          <span style={styles.bannerIcon}>📡</span>
+          <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#d97706' }} />
           <div>
             <strong style={styles.bannerTitle}>Modo Local / Sin conexión</strong>
             <p style={styles.bannerText}>
@@ -149,7 +148,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
       {/* Alerta de Error */}
       {error && (
         <div style={styles.errorAlert}>
-          <span>⚠️ {error}</span>
+          <span>{error}</span>
           <button onClick={recargar} style={styles.retryBtn}>
             Reintentar
           </button>
@@ -159,7 +158,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
       {/* Toast Flotante */}
       {toastMessage && (
         <div style={styles.toast}>
-          <span>✓ {toastMessage}</span>
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -276,39 +275,6 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         />
       )}
 
-      {/* Banners de finalización */}
-      {parte1Completa && !isChecklistCompleto && (
-        <div style={styles.completionBanner}>
-          <span style={{ fontSize: '20px' }}>⚡</span>
-          <div>
-            <strong style={styles.completionTitle}>Parte 1 completada</strong>
-            <p style={styles.completionText}>
-              Continúa con la Parte 2: puertos, temperaturas y diagnóstico SMART.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {isChecklistCompleto && (
-        <div
-          style={{
-            ...styles.completionBanner,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-          }}
-        >
-          <span style={{ fontSize: '20px' }}>🏆</span>
-          <div>
-            <strong style={{ ...styles.completionTitle, color: '#a7f3d0' }}>
-              ¡Checklist 100% Completado!
-            </strong>
-            <p style={{ ...styles.completionText, color: '#d1fae5' }}>
-              Todas las 6 tareas obligatorias están verificadas. Ya puedes cerrar la orden de servicio.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Botonera de Acción */}
       <div style={styles.actionBar}>
         <button
@@ -366,8 +332,6 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <CierreOrdenModal
           items={items}
           isCompleto={isChecklistCompleto}
-          equipo={equipo}
-          idOrden={idOrden}
           onCerrarOrden={cerrarOrden}
           onClose={() => setActiveModal(null)}
           onSuccess={handleCierreExitoso}

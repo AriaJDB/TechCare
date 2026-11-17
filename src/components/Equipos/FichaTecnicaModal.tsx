@@ -124,23 +124,25 @@ export default function FichaTecnicaModal({
     if (onSemaforoChange) onSemaforoChange();
 
     if (nuevoEstado === 'rojo') {
-      await dispararNotificacionVencimiento({
+      dispararNotificacionVencimiento({
         idEquipo: claveEquipo,
         numeroSerie: equipo.numero_serie || 'SN-EQUIPO',
         tipoDispositivo: equipo.tipo_dispositivo || 'Equipo',
         ultimoIngeniero,
         proximaFecha: fechaProximoMantenimiento,
         estadoSemaforo: 'rojo',
-      });
+      }).catch(console.warn);
+
       setMensajeExito(
-        `🔔 Notificación enviada al teléfono para ${ultimoIngeniero} (Equipo ${equipo.numero_serie} en ROJO).`
+        `Notificación enviada al teléfono para ${ultimoIngeniero} (Equipo ${equipo.numero_serie} en ROJO).`
       );
-      setTimeout(() => setMensajeExito(''), 4500);
+      setTimeout(() => setMensajeExito(''), 3500);
     }
   };
 
   const handleGuardarMantenimiento = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardando) return;
     if (!diagnostico.trim() || !tecnico.trim() || !subsistema.trim()) {
       alert('Por favor completa todos los campos del mantenimiento');
       return;
@@ -282,7 +284,7 @@ export default function FichaTecnicaModal({
           {metricas.alertasRecurrentes.length > 0 && (
             <div style={styles.recurrentAlertCard}>
               <div style={styles.recurrentAlertHeader}>
-                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dc2626' }} />
                 <div>
                   <strong style={styles.recurrentAlertTitle}>
                     Falla Recurrente Detectada ({metricas.alertasRecurrentes[0].subsistema})
@@ -297,7 +299,7 @@ export default function FichaTecnicaModal({
                 {metricas.alertasRecurrentes[0].causasRaizPrevias.join(' · ')}
               </p>
               <p style={styles.recurrentAlertHint}>
-                💡 <strong>Recomendación antes de cerrar orden:</strong>{' '}
+                <strong>Recomendación técnica:</strong>{' '}
                 {metricas.alertasRecurrentes[0].sugerenciaRevision}
               </p>
             </div>
@@ -647,7 +649,7 @@ export default function FichaTecnicaModal({
                         <p style={styles.diagnosticoText}>{item.diagnostico}</p>
                         {item.causa_raiz && (
                           <div style={styles.causaRaizBox}>
-                            <span style={styles.causaRaizLabel}>🔍 Causa raíz subyacente:</span>{' '}
+                            <span style={styles.causaRaizLabel}>Causa raíz subyacente:</span>{' '}
                             <span style={styles.causaRaizValue}>{item.causa_raiz}</span>
                           </div>
                         )}

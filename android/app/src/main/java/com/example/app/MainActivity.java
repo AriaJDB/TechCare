@@ -33,11 +33,13 @@ import java.io.OutputStream;
 
 public class MainActivity extends BridgeActivity {
     private static final String CHANNEL_ID = "techcare_alertas_vencimiento";
+    private static String pendingSerialToOpen = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         createNotificationChannel();
+        handleIntent(getIntent());
 
         Bridge bridge = getBridge();
         if (bridge != null) {
@@ -45,6 +47,38 @@ public class MainActivity extends BridgeActivity {
             if (webView != null) {
                 webView.addJavascriptInterface(new TechCareNativeBridge(), "TechCareNative");
             }
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+        dispatchSerialToWebView();
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("numero_serie")) {
+            String serial = intent.getStringExtra("numero_serie");
+            if (serial != null && !serial.isEmpty()) {
+                pendingSerialToOpen = serial;
+            }
+        }
+    }
+
+    private void dispatchSerialToWebView() {
+        if (pendingSerialToOpen != null && !pendingSerialToOpen.isEmpty()) {
+            final String serial = pendingSerialToOpen;
+            runOnUiThread(() -> {
+                Bridge bridge = getBridge();
+                if (bridge != null && bridge.getWebView() != null) {
+                    bridge.getWebView().evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('techcare:abrir_equipo', { detail: { numeroSerie: '" + serial + "' } }));",
+                        null
+                    );
+                }
+            });
         }
     }
 
@@ -135,13 +169,22 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public String getPendingEquipmentSerial() {
+            String serial = pendingSerialToOpen;
+            pendingSerialToOpen = null;
+            return serial != null ? serial : "";
+        }
+
+        @JavascriptInterface
         public boolean sendMaintenanceNotification(String title, String body, String serial) {
             try {
                 createNotificationChannel();
                 requestNotificationPermission();
 
                 Intent intent = new Intent(MainActivity.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                intent.putExtra("numero_serie", serial != null ? serial : "");
+                intent.setAction("OPEN_EQUIPO_" + (serial != null ? serial : System.currentTimeMillis()));
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     flags |= PendingIntent.FLAG_IMMUTABLE;

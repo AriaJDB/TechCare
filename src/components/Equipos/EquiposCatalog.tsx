@@ -175,26 +175,91 @@ export default function EquiposCatalog({
     );
   };
 
-  const handleCambiarSemaforoDirecto = async (equipo: any, nuevoEstado: EstadoSemaforo) => {
+  const handleCambiarSemaforoDirecto = (equipo: any, nuevoEstado: EstadoSemaforo) => {
     const clave = equipo.id || equipo.id_equipo || equipo.numero_serie || equipo.codigo_qr;
     establecerOverrideSemaforo(clave, nuevoEstado);
-    await calcularResumenesParaEquipos(equipos);
+
+    // 1. Actualización optimista inmediata en UI (cero latencia)
+    setResumenMap((prev) => ({
+      ...prev,
+      [clave]: {
+        ...(prev[clave] || {
+          cicloMeses: 6,
+          diasRestantes: 0,
+          proximaFecha: new Date().toISOString().substring(0, 10),
+          ultimoIngeniero: perfilUsuario.nombreMostrar || 'Ing. Cinthia López',
+          ultimaFechaServicio: new Date().toISOString().substring(0, 10),
+        }),
+        estadoSemaforo: nuevoEstado,
+        esManual: true,
+      },
+    }));
 
     const resumenActual = resumenMap[clave];
     const ultimoIng = resumenActual?.ultimoIngeniero || perfilUsuario.nombreMostrar || 'Ing. Cinthia López';
     const proxFecha = resumenActual?.proximaFecha || '2027-03-18';
 
+    // 2. Notificación en segundo plano sin congelar la app
     if (nuevoEstado === 'rojo') {
-      await dispararNotificacionVencimiento({
+      dispararNotificacionVencimiento({
         idEquipo: clave,
         numeroSerie: equipo.numero_serie || 'SN-EQUIPO',
         tipoDispositivo: equipo.tipo_dispositivo || 'Equipo',
         ultimoIngeniero: ultimoIng,
         proximaFecha: proxFecha,
         estadoSemaforo: 'rojo',
-      });
+      }).catch(console.warn);
     }
   };
+
+  // Abrir equipo automáticamente cuando el usuario toca la notificación nativa
+  const abrirEquipoPorSerial = (serial: string) => {
+    if (!serial) return;
+    const clean = serial.trim().toLowerCase();
+    const match = equipos.find(
+      (e) =>
+        e.numero_serie?.toLowerCase() === clean ||
+        e.codigo_qr?.toLowerCase() === clean ||
+        String(e.id || '').toLowerCase() === clean ||
+        String(e.id_equipo || '').toLowerCase() === clean
+    );
+    if (match) {
+      setEquipoFicha(match);
+      setVista('catalogo');
+    }
+  };
+
+  useEffect(() => {
+    const checkPendingNotificationSerial = () => {
+      try {
+        if (typeof window !== 'undefined' && (window as any).TechCareNative?.getPendingEquipmentSerial) {
+          const serial = (window as any).TechCareNative.getPendingEquipmentSerial();
+          if (serial && serial.trim()) {
+            abrirEquipoPorSerial(serial.trim());
+          }
+        }
+      } catch (e) {
+        console.warn('Error verificando serial pendiente:', e);
+      }
+    };
+
+    const handleCustomEvent = (e: any) => {
+      const serial = e?.detail?.numeroSerie;
+      if (serial) {
+        abrirEquipoPorSerial(serial);
+      }
+    };
+
+    window.addEventListener('techcare:abrir_equipo', handleCustomEvent);
+    window.addEventListener('focus', checkPendingNotificationSerial);
+    checkPendingNotificationSerial();
+
+    return () => {
+      window.removeEventListener('techcare:abrir_equipo', handleCustomEvent);
+      window.removeEventListener('focus', checkPendingNotificationSerial);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipos]);
 
   useEffect(() => {
     fetchEquipos();

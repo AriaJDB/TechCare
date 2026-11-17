@@ -48,7 +48,7 @@ export default function PerfilUsuarioModal({
       });
       setDirectorio(obtenerDirectorioIngenieros());
       onPerfilActualizado(actualizado);
-      setMensajeExito('✓ Perfil de ingeniero actualizado y sincronizado.');
+      setMensajeExito('Perfil de ingeniero actualizado y sincronizado.');
       setTimeout(() => setMensajeExito(''), 3500);
     } finally {
       setGuardando(false);
@@ -76,7 +76,7 @@ export default function PerfilUsuarioModal({
     const lista = sincronizarIngenieroEnDirectorio(nuevo);
     setDirectorio(lista);
     setNuevoIngNombre('');
-    setMensajeExito(`✓ ${formateado} agregado a la plantilla de asignación.`);
+    setMensajeExito(`${formateado} agregado a la plantilla de asignación.`);
     setTimeout(() => setMensajeExito(''), 3000);
   };
 
@@ -120,7 +120,7 @@ export default function PerfilUsuarioModal({
           <form onSubmit={handleGuardarPerfil} style={styles.sectionCard}>
             <div style={styles.sectionHeaderRow}>
               <span style={styles.badgeRol}>
-                {rol === 'administrador' ? '🛡️ ADMINISTRADOR TI' : '🔧 INGENIERO SOPORTE'}
+                {rol === 'administrador' ? 'ADMINISTRADOR TI' : 'INGENIERO SOPORTE'}
               </span>
               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>
                 Firma activa en órdenes

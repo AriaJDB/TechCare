@@ -21,7 +21,6 @@ export const SmartModal: React.FC<SmartModalProps> = ({
   const [tempDisco, setTempDisco] = useState<number>(initialData?.temperaturaDisco ?? 36);
   const [guardando, setGuardando] = useState(false);
 
-  // Evaluación automática en vivo
   const evaluacion = evaluarSmart(
     Number(salud),
     Number(horas),
@@ -45,22 +44,19 @@ export const SmartModal: React.FC<SmartModalProps> = ({
   };
 
   const estadoColor = {
-    bueno: '#10b981',
-    regular: '#38bdf8',
-    riesgo: '#f59e0b',
-    critico: '#ef4444',
+    bueno: '#16a34a',
+    regular: '#0284c7',
+    riesgo: '#d97706',
+    critico: '#dc2626',
   }[evaluacion.estado];
 
   return (
     <div style={styles.overlay}>
       <div style={styles.modalCard}>
         <div style={styles.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '24px' }}>💾</span>
-            <div>
-              <h3 style={styles.title}>Diagnóstico Rápido S.M.A.R.T.</h3>
-              <p style={styles.subtitle}>Diagnóstico de salud del Disco / SSD</p>
-            </div>
+          <div>
+            <h3 style={styles.title}>Diagnóstico Rápido S.M.A.R.T.</h3>
+            <p style={styles.subtitle}>Diagnóstico de salud del Disco / SSD</p>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">✕</button>
         </div>
@@ -98,21 +94,10 @@ export const SmartModal: React.FC<SmartModalProps> = ({
           <div style={styles.healthCard}>
             <div style={styles.healthHeader}>
               <span style={styles.healthLabel}>Salud de la Unidad</span>
-              <span style={{ ...styles.healthPercent, color: estadoColor }}>
-                {salud}%
+              <span style={{ ...styles.healthValue, color: estadoColor }}>
+                {salud}% ({evaluacion.estado.toUpperCase()})
               </span>
             </div>
-
-            <div style={styles.progressBarTrack}>
-              <div
-                style={{
-                  ...styles.progressBarFill,
-                  width: `${salud}%`,
-                  backgroundColor: estadoColor,
-                }}
-              />
-            </div>
-
             <input
               type="range"
               min="0"
@@ -123,10 +108,10 @@ export const SmartModal: React.FC<SmartModalProps> = ({
             />
           </div>
 
-          {/* Grid de parámetros SMART */}
+          {/* Grilla de parámetros SMART */}
           <div style={styles.paramsGrid}>
             <div style={styles.paramItem}>
-              <label style={styles.label}>Horas de uso (POH)</label>
+              <label style={styles.label}>Horas Encendido</label>
               <input
                 type="number"
                 min="0"
@@ -144,7 +129,7 @@ export const SmartModal: React.FC<SmartModalProps> = ({
                 onChange={(e) => setSectores(Number(e.target.value))}
                 style={{
                   ...styles.input,
-                  borderColor: sectores > 0 ? '#ef4444' : '#334155',
+                  borderColor: sectores > 0 ? '#ef4444' : '#cbd5e1',
                 }}
               />
             </div>
@@ -166,24 +151,17 @@ export const SmartModal: React.FC<SmartModalProps> = ({
             style={{
               ...styles.diagCard,
               borderColor: estadoColor,
-              backgroundColor: `${estadoColor}1a`,
+              backgroundColor: `${estadoColor}15`,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '18px' }}>
-                {evaluacion.estado === 'bueno'
-                  ? '✅'
-                  : evaluacion.estado === 'regular'
-                  ? 'ℹ️'
-                  : evaluacion.estado === 'riesgo'
-                  ? '⚠️'
-                  : '🚨'}
-              </span>
-              <strong style={{ fontSize: '13px', color: estadoColor }}>
-                Dictamen SMART: {evaluacion.estado.toUpperCase()}
+            <div>
+              <strong style={{ fontSize: '13px', color: estadoColor, display: 'block' }}>
+                Dictamen Técnico ({evaluacion.estado.toUpperCase()}):
               </strong>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#172554' }}>
+                {evaluacion.diagnostico}
+              </p>
             </div>
-            <p style={styles.diagText}>{evaluacion.diagnostico}</p>
           </div>
 
           <div style={styles.footer}>
@@ -192,7 +170,7 @@ export const SmartModal: React.FC<SmartModalProps> = ({
               disabled={guardando}
               style={styles.saveBtn}
             >
-              {guardando ? 'Guardando...' : '💾 Guardar SMART y Validar'}
+              {guardando ? 'Guardando...' : 'Guardar Diagnóstico SMART'}
             </button>
             <button
               type="button"
@@ -215,117 +193,111 @@ const styles: Record<string, any> = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(180, 196, 238, 0.72)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
     padding: '16px',
-    backdropFilter: 'blur(4px)',
+    backdropFilter: 'blur(8px)',
   },
   modalCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: '16px',
-    border: '1px solid #1e293b',
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    borderRadius: '28px',
+    border: '1.5px solid rgba(255, 255, 255, 0.9)',
     width: '100%',
-    maxWidth: '480px',
+    maxWidth: '460px',
     maxHeight: '90vh',
     overflowY: 'auto',
-    padding: '20px',
-    color: '#ffffff',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    padding: '22px 20px',
+    color: '#172554',
+    boxShadow: '18px 22px 42px rgba(130, 150, 200, 0.45), inset 0 3px 5px #ffffff',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '14px',
-    borderBottom: '1px solid #1e293b',
+    marginBottom: '16px',
+    borderBottom: '1px solid #cbd5e1',
     paddingBottom: '12px',
   },
   title: {
     margin: 0,
     fontSize: '16px',
-    fontWeight: 700,
-    color: '#f8fafc',
+    fontWeight: 800,
+    color: '#172554',
   },
   subtitle: {
-    margin: '2px 0 0 0',
-    fontSize: '11px',
-    color: '#38bdf8',
+    margin: '3px 0 0 0',
+    fontSize: '12px',
+    color: '#475569',
   },
   closeBtn: {
-    background: 'none',
+    background: '#ffffff',
     border: 'none',
-    color: '#94a3b8',
-    fontSize: '18px',
+    color: '#1e293b',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
     cursor: 'pointer',
-    padding: '4px 8px',
+    fontSize: '13px',
+    fontWeight: 800,
+    boxShadow: '3px 3px 8px rgba(148, 166, 212, 0.35)',
   },
   body: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '14px',
+    gap: '12px',
   },
   presetsBar: {
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
-    padding: '8px 10px',
-    backgroundColor: '#1e293b',
-    borderRadius: '8px',
+    background: '#e2e8f0',
+    padding: '8px 12px',
+    borderRadius: '12px',
   },
   presetsLabel: {
     fontSize: '11px',
-    color: '#94a3b8',
-    fontWeight: 500,
+    fontWeight: 700,
+    color: '#475569',
   },
   presetBtn: {
-    backgroundColor: '#0f172a',
-    color: '#38bdf8',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    padding: '4px 8px',
+    background: '#ffffff',
+    border: 'none',
+    color: '#2563eb',
     fontSize: '11px',
+    fontWeight: 700,
+    padding: '4px 8px',
+    borderRadius: '6px',
     cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
   },
   healthCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: '12px',
-    padding: '14px',
-    border: '1px solid #334155',
+    background: '#ffffff',
+    padding: '12px 14px',
+    borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '4px 4px 10px rgba(148, 166, 212, 0.25)',
   },
   healthHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px',
+    marginBottom: '6px',
   },
   healthLabel: {
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#172554',
+  },
+  healthValue: {
     fontSize: '13px',
-    fontWeight: 600,
-    color: '#f1f5f9',
-  },
-  healthPercent: {
-    fontSize: '20px',
     fontWeight: 800,
-  },
-  progressBarTrack: {
-    width: '100%',
-    height: '10px',
-    backgroundColor: '#0f172a',
-    borderRadius: '5px',
-    overflow: 'hidden',
-    marginBottom: '10px',
-  },
-  progressBarFill: {
-    height: '100%',
-    transition: 'width 0.3s ease, background-color 0.3s ease',
   },
   slider: {
     width: '100%',
     cursor: 'pointer',
-    accentColor: '#38bdf8',
+    accentColor: '#2563eb',
   },
   paramsGrid: {
     display: 'grid',
@@ -333,61 +305,64 @@ const styles: Record<string, any> = {
     gap: '8px',
   },
   paramItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
+    background: '#ffffff',
+    padding: '10px 8px',
+    borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '3px 3px 8px rgba(148, 166, 212, 0.2)',
   },
   label: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    display: 'block',
+    fontSize: '10.5px',
+    fontWeight: 700,
+    color: '#475569',
+    marginBottom: '4px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   input: {
     width: '100%',
-    padding: '8px',
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
+    padding: '6px 8px',
     borderRadius: '8px',
-    color: '#ffffff',
-    fontSize: '13px',
-    fontWeight: 600,
-    textAlign: 'center',
-    boxSizing: 'border-box',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#e3eaf8',
+    color: '#172554',
+    fontSize: '12px',
+    fontWeight: 700,
     outline: 'none',
+    boxSizing: 'border-box',
   },
   diagCard: {
     padding: '12px',
-    borderRadius: '10px',
-    border: '1px solid',
-  },
-  diagText: {
-    margin: '6px 0 0 0',
-    fontSize: '12px',
-    lineHeight: '1.4',
-    color: '#f1f5f9',
+    borderRadius: '14px',
+    border: '1.5px solid #cbd5e1',
   },
   footer: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
+    gap: '10px',
     marginTop: '6px',
   },
   saveBtn: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '10px',
+    flex: 1,
     padding: '12px',
-    fontSize: '14px',
-    fontWeight: 600,
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    border: 'none',
+    borderRadius: '14px',
+    color: '#ffffff',
+    fontSize: '12.5px',
+    fontWeight: 800,
     cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
   },
   cancelBtn: {
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    border: '1px solid #334155',
-    borderRadius: '10px',
-    padding: '10px',
-    fontSize: '13px',
+    padding: '12px 18px',
+    background: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '14px',
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 700,
     cursor: 'pointer',
   },
 };

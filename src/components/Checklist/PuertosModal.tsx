@@ -8,11 +8,11 @@ interface PuertosModalProps {
 }
 
 const PUERTOS_LIST = [
-  { id: 'usb_a', label: 'Puertos USB-A (3.0 / 2.0)', icon: '🔌' },
-  { id: 'usb_c', label: 'Puerto USB-C / Thunderbolt', icon: '⚡' },
-  { id: 'hdmi', label: 'Salida HDMI / DisplayPort', icon: '🖥️' },
-  { id: 'audio', label: 'Jack de Audio 3.5mm', icon: '🎧' },
-  { id: 'rj45', label: 'Puerto Ethernet RJ45', icon: '🌐' },
+  { id: 'usb_a', label: 'Puertos USB-A (3.0 / 2.0)' },
+  { id: 'usb_c', label: 'Puerto USB-C / Thunderbolt' },
+  { id: 'hdmi', label: 'Salida HDMI / DisplayPort' },
+  { id: 'audio', label: 'Jack de Audio 3.5mm' },
+  { id: 'rj45', label: 'Puerto Ethernet RJ45' },
 ] as const;
 
 export const PuertosModal: React.FC<PuertosModalProps> = ({
@@ -76,12 +76,9 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
     <div style={styles.overlay}>
       <div style={styles.modalCard}>
         <div style={styles.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '24px' }}>🔌</span>
-            <div>
-              <h3 style={styles.title}>Inspección de Puertos Físicos</h3>
-              <p style={styles.subtitle}>Verificación de conectividad física</p>
-            </div>
+          <div>
+            <h3 style={styles.title}>Inspección de Puertos Físicos</h3>
+            <p style={styles.subtitle}>Verificación de conectividad física</p>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">✕</button>
         </div>
@@ -94,7 +91,7 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
               onClick={handleMarcarTodosOk}
               style={styles.quickActionBtn}
             >
-              ✓ Marcar todos Operativos (OK)
+              Marcar todos Operativos (OK)
             </button>
           </div>
 
@@ -104,7 +101,6 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
               return (
                 <div key={p.id} style={styles.portRow}>
                   <div style={styles.portLabelWrap}>
-                    <span style={{ fontSize: '18px' }}>{p.icon}</span>
                     <span style={styles.portLabel}>{p.label}</span>
                   </div>
 
@@ -119,9 +115,9 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
                           ...(currentVal === st ? styles.statusBtnSelected[st] : {}),
                         }}
                       >
-                        {st === 'ok' && '✓ OK'}
-                        {st === 'falla' && '⚠️ Falla'}
-                        {st === 'danado' && '❌ Dañado'}
+                        {st === 'ok' && 'OK'}
+                        {st === 'falla' && 'Falla'}
+                        {st === 'danado' && 'Dañado'}
                         {st === 'no_aplica' && 'N/A'}
                       </button>
                     ))}
@@ -148,7 +144,7 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
               disabled={guardando}
               style={styles.saveBtn}
             >
-              {guardando ? 'Guardando...' : '💾 Guardar y Validar Tarea'}
+              {guardando ? 'Guardando...' : 'Guardar y Validar Tarea'}
             </button>
             <button
               type="button"
@@ -171,52 +167,56 @@ const styles: Record<string, any> = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(180, 196, 238, 0.72)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
     padding: '16px',
-    backdropFilter: 'blur(4px)',
+    backdropFilter: 'blur(8px)',
   },
   modalCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: '16px',
-    border: '1px solid #1e293b',
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    borderRadius: '28px',
+    border: '1.5px solid rgba(255, 255, 255, 0.9)',
     width: '100%',
-    maxWidth: '480px',
+    maxWidth: '460px',
     maxHeight: '90vh',
     overflowY: 'auto',
-    padding: '20px',
-    color: '#ffffff',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    padding: '22px 20px',
+    color: '#172554',
+    boxShadow: '18px 22px 42px rgba(130, 150, 200, 0.45), inset 0 3px 5px #ffffff',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
-    borderBottom: '1px solid #1e293b',
+    borderBottom: '1px solid #cbd5e1',
     paddingBottom: '12px',
   },
   title: {
     margin: 0,
     fontSize: '16px',
-    fontWeight: 700,
-    color: '#f8fafc',
+    fontWeight: 800,
+    color: '#172554',
   },
   subtitle: {
-    margin: '2px 0 0 0',
-    fontSize: '11px',
-    color: '#38bdf8',
+    margin: '3px 0 0 0',
+    fontSize: '12px',
+    color: '#475569',
   },
   closeBtn: {
-    background: 'none',
+    background: '#ffffff',
     border: 'none',
-    color: '#94a3b8',
-    fontSize: '18px',
+    color: '#1e293b',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
     cursor: 'pointer',
-    padding: '4px 8px',
+    fontSize: '13px',
+    fontWeight: 800,
+    boxShadow: '3px 3px 8px rgba(148, 166, 212, 0.35)',
   },
   body: {
     display: 'flex',
@@ -227,23 +227,25 @@ const styles: Record<string, any> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    background: '#e2e8f0',
     padding: '8px 12px',
-    backgroundColor: '#1e293b',
-    borderRadius: '8px',
+    borderRadius: '12px',
   },
   quickBarText: {
     fontSize: '12px',
-    color: '#94a3b8',
+    fontWeight: 600,
+    color: '#475569',
   },
   quickActionBtn: {
-    backgroundColor: '#10b981',
-    color: '#ffffff',
+    background: '#ffffff',
     border: 'none',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    fontSize: '11px',
-    fontWeight: 600,
+    color: '#059669',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    padding: '6px 12px',
+    borderRadius: '8px',
     cursor: 'pointer',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
   },
   portList: {
     display: 'flex',
@@ -252,12 +254,13 @@ const styles: Record<string, any> = {
   },
   portRow: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    padding: '10px',
-    backgroundColor: '#1e293b',
-    borderRadius: '8px',
-    border: '1px solid #334155',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    background: '#ffffff',
+    padding: '10px 14px',
+    borderRadius: '14px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '4px 4px 10px rgba(148, 166, 212, 0.25)',
   },
   portLabelWrap: {
     display: 'flex',
@@ -265,93 +268,96 @@ const styles: Record<string, any> = {
     gap: '8px',
   },
   portLabel: {
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#f1f5f9',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    color: '#172554',
   },
   selectorGroup: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: '6px',
+    display: 'flex',
+    gap: '4px',
   },
   statusBtn: {
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
-    border: '1px solid #334155',
+    padding: '5px 8px',
+    fontSize: '10.5px',
+    fontWeight: 700,
     borderRadius: '6px',
-    padding: '6px 2px',
-    fontSize: '11px',
-    fontWeight: 500,
+    border: '1px solid #cbd5e1',
+    background: '#f8fafc',
+    color: '#64748b',
     cursor: 'pointer',
-    textAlign: 'center',
   },
   statusBtnSelected: {
     ok: {
-      backgroundColor: '#10b981',
-      borderColor: '#10b981',
-      color: '#ffffff',
-      fontWeight: 700,
+      background: '#dcfce7',
+      color: '#065f46',
+      borderColor: '#16a34a',
+      fontWeight: 800,
     },
     falla: {
-      backgroundColor: '#f59e0b',
-      borderColor: '#f59e0b',
-      color: '#000000',
-      fontWeight: 700,
+      background: '#fef9c3',
+      color: '#854d0e',
+      borderColor: '#ca8a04',
+      fontWeight: 800,
     },
     danado: {
-      backgroundColor: '#ef4444',
-      borderColor: '#ef4444',
-      color: '#ffffff',
-      fontWeight: 700,
+      background: '#fee2e2',
+      color: '#991b1b',
+      borderColor: '#dc2626',
+      fontWeight: 800,
     },
     no_aplica: {
-      backgroundColor: '#475569',
-      borderColor: '#475569',
-      color: '#ffffff',
-      fontWeight: 700,
+      background: '#f1f5f9',
+      color: '#475569',
+      borderColor: '#94a3b8',
+      fontWeight: 800,
     },
   },
   label: {
-    fontSize: '12px',
-    fontWeight: 500,
-    color: '#94a3b8',
     display: 'block',
-    marginBottom: '4px',
+    fontSize: '12px',
+    fontWeight: 700,
+    color: '#172554',
+    marginBottom: '6px',
   },
   textarea: {
     width: '100%',
-    padding: '8px 10px',
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
-    borderRadius: '8px',
-    color: '#ffffff',
+    padding: '10px 12px',
+    borderRadius: '12px',
+    border: 'none',
+    backgroundColor: '#e3eaf8',
+    color: '#172554',
     fontSize: '12px',
-    boxSizing: 'border-box',
+    fontWeight: 500,
     outline: 'none',
+    boxShadow: 'inset 2px 2px 6px rgba(160, 176, 212, 0.45)',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
   },
   footer: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
+    gap: '10px',
     marginTop: '10px',
   },
   saveBtn: {
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '10px',
+    flex: 1,
     padding: '12px',
-    fontSize: '14px',
-    fontWeight: 600,
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    border: 'none',
+    borderRadius: '14px',
+    color: '#ffffff',
+    fontSize: '12.5px',
+    fontWeight: 800,
     cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
   },
   cancelBtn: {
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    border: '1px solid #334155',
-    borderRadius: '10px',
-    padding: '10px',
-    fontSize: '13px',
+    padding: '12px 18px',
+    background: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '14px',
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 700,
     cursor: 'pointer',
   },
 };

@@ -72,37 +72,37 @@ export const TAREAS_INFO: Record<
   limpieza: {
     titulo: 'Limpieza general',
     descripcion: 'Remoción de polvo en placa madre, disipador y carcasa física',
-    icon: '🧹',
+    icon: '01',
     parte: 1,
   },
   ventiladores: {
     titulo: 'Ventiladores y flujo de aire',
     descripcion: 'Inspección de giro, lubricación y limpieza de fan coolers',
-    icon: '🌀',
+    icon: '02',
     parte: 1,
   },
   pasta_termica: {
     titulo: 'Pasta / compuesto térmico',
     descripcion: 'Limpieza de compuesto degradado y aplicación de nueva pasta en CPU/GPU',
-    icon: '🧪',
+    icon: '03',
     parte: 1,
   },
   puertos: {
     titulo: 'Inspección de puertos físicos',
     descripcion: 'Prueba de puertos USB, HDMI/DP, Jack audio y RJ45 Ethernet',
-    icon: '🔌',
+    icon: '04',
     parte: 2,
   },
   temperatura: {
     titulo: 'Medición de temperatura',
     descripcion: 'Registro de temperaturas pre y post servicio con cálculo de delta térmico',
-    icon: '🌡️',
+    icon: '05',
     parte: 2,
   },
   smart: {
     titulo: 'Diagnóstico S.M.A.R.T',
     descripcion: 'Evaluación rápida de salud, horas de uso y sectores del disco/SSD',
-    icon: '💾',
+    icon: '06',
     parte: 2,
   },
 };
