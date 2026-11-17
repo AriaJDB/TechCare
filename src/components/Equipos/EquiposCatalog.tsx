@@ -8,7 +8,73 @@ import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter'
 
 type VistaActual = 'catalogo' | 'nuevo' | 'escanear';
 
-export default function EquiposCatalog({ session, onLogout }: { session: any, onLogout: () => void }) {
+export const DeviceIcon = ({ tipo }: { tipo?: string }) => {
+  const t = (tipo || 'laptop').toLowerCase();
+
+  if (t === 'desktop') {
+    return (
+      <div
+        style={{
+          ...styles.deviceIconBox,
+          background: 'linear-gradient(145deg, #5c8df6 0%, #2563eb 100%)',
+          boxShadow:
+            '0 8px 16px rgba(37, 99, 235, 0.35), inset 0 3px 5px rgba(255, 255, 255, 0.45), inset 0 -4px 6px rgba(29, 78, 216, 0.65)',
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (t === 'servidor') {
+    return (
+      <div
+        style={{
+          ...styles.deviceIconBox,
+          background: 'linear-gradient(145deg, #a78bfa 0%, #7c3aed 100%)',
+          boxShadow:
+            '0 8px 16px rgba(124, 58, 237, 0.35), inset 0 3px 5px rgba(255, 255, 255, 0.45), inset 0 -4px 6px rgba(91, 33, 182, 0.65)',
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+          <line x1="6" y1="6" x2="6.01" y2="6" />
+          <line x1="6" y1="18" x2="6.01" y2="18" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Default: laptop
+  return (
+    <div
+      style={{
+        ...styles.deviceIconBox,
+        background: 'linear-gradient(145deg, #34d399 0%, #10b981 100%)',
+        boxShadow:
+          '0 8px 16px rgba(16, 185, 129, 0.35), inset 0 3px 5px rgba(255, 255, 255, 0.45), inset 0 -4px 6px rgba(5, 150, 105, 0.65)',
+      }}
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="12" rx="2" ry="2" />
+        <line x1="2" y1="20" x2="22" y2="20" />
+      </svg>
+    </div>
+  );
+};
+
+export default function EquiposCatalog({
+  session,
+  onLogout,
+}: {
+  session: any;
+  onLogout: () => void;
+}) {
   const [equipos, setEquipos] = useState<any[]>([]);
   const [vista, setVista] = useState<VistaActual>('catalogo');
   const [loading, setLoading] = useState(true);
@@ -22,7 +88,7 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
       .from('equipo')
       .select('*')
       .order('created_at', { ascending: false });
-      
+
     if (!error && data) {
       setEquipos(data);
     }
@@ -30,11 +96,14 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("¿Seguro que deseas eliminar este equipo?")) {
+    if (window.confirm('¿Seguro que deseas eliminar este equipo?')) {
       const { error } = await supabase.from('equipo').delete().eq('id', id);
       if (error) {
-        if (error.code === '42501') alert("Error HTTP 403: Acceso denegado. No tienes permisos de administrador para eliminar.");
-        else alert(error.message);
+        if (error.code === '42501') {
+          alert('Error HTTP 403: Acceso denegado. No tienes permisos de administrador para eliminar.');
+        } else {
+          alert(error.message);
+        }
       } else {
         fetchEquipos();
       }
@@ -47,27 +116,33 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
   };
 
   const handleDescargarCardQR = (equipo: any) => {
-    const cardEl = document.querySelector(`[data-card-qr="${equipo.id}"] svg`) as SVGSVGElement | null;
-    descargarEtiquetaQR({
-      tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
-      numero_serie: equipo.numero_serie,
-      procesador: equipo.procesador,
-      ram: equipo.ram,
-      almacenamiento: equipo.almacenamiento,
-      codigo_qr: equipo.codigo_qr
-    }, cardEl);
+    const cardEl = document.querySelector(`[data-card-qr="${equipo.id || equipo.id_equipo}"] svg`) as SVGSVGElement | null;
+    descargarEtiquetaQR(
+      {
+        tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
+        numero_serie: equipo.numero_serie,
+        procesador: equipo.procesador,
+        ram: equipo.ram,
+        almacenamiento: equipo.almacenamiento,
+        codigo_qr: equipo.codigo_qr,
+      },
+      cardEl
+    );
   };
 
   const handleImprimirCardQR = (equipo: any) => {
-    const cardEl = document.querySelector(`[data-card-qr="${equipo.id}"] svg`) as SVGSVGElement | null;
-    imprimirEtiquetaQR({
-      tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
-      numero_serie: equipo.numero_serie,
-      procesador: equipo.procesador,
-      ram: equipo.ram,
-      almacenamiento: equipo.almacenamiento,
-      codigo_qr: equipo.codigo_qr
-    }, cardEl);
+    const cardEl = document.querySelector(`[data-card-qr="${equipo.id || equipo.id_equipo}"] svg`) as SVGSVGElement | null;
+    imprimirEtiquetaQR(
+      {
+        tipo_dispositivo: equipo.tipo_dispositivo || 'laptop',
+        numero_serie: equipo.numero_serie,
+        procesador: equipo.procesador,
+        ram: equipo.ram,
+        almacenamiento: equipo.almacenamiento,
+        codigo_qr: equipo.codigo_qr,
+      },
+      cardEl
+    );
   };
 
   useEffect(() => {
@@ -83,30 +158,74 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
           <p style={styles.subtitle}>{session.user.email}</p>
         </div>
         <button onClick={onLogout} style={styles.logoutBtn}>
-          Salir
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#be123c" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Salir</span>
         </button>
       </div>
 
-      {/* Barra de Navegación / Pestañas de Sprint 4 */}
+      {/* Barra de Navegación / Pestañas Claymorphism */}
       <div style={styles.navigationTabs}>
         <button
-          onClick={() => { setVista('catalogo'); setEquipoAEditar(null); }}
+          onClick={() => {
+            setVista('catalogo');
+            setEquipoAEditar(null);
+          }}
           style={{
             ...styles.navTab,
-            ...(vista === 'catalogo' ? styles.navTabActive : {})
+            ...(vista === 'catalogo' ? styles.navTabActive : {}),
           }}
         >
-          📋 Catálogo ({equipos.length})
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={vista === 'catalogo' ? '#ffffff' : '#334155'}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+            <line x1="8" y1="11" x2="16" y2="11" />
+            <line x1="8" y1="16" x2="13" y2="16" />
+          </svg>
+          <span>Catálogo ({equipos.length})</span>
         </button>
+
         <button
-          onClick={() => { setVista('escanear'); setEquipoAEditar(null); }}
+          onClick={() => {
+            setVista('escanear');
+            setEquipoAEditar(null);
+          }}
           style={{
             ...styles.navTab,
-            ...(vista === 'escanear' ? styles.navTabActive : {})
+            ...(vista === 'escanear' ? styles.navTabActive : {}),
           }}
         >
-          📷 Escanear QR
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={vista === 'escanear' ? '#ffffff' : '#334155'}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+          </svg>
+          <span>Escanear QR</span>
         </button>
+
         <button
           onClick={() => {
             if (vista === 'nuevo') {
@@ -119,175 +238,176 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
           }}
           style={{
             ...styles.navTab,
-            ...(vista === 'nuevo' ? styles.navTabActive : {})
+            ...(vista === 'nuevo' ? styles.navTabActive : {}),
           }}
         >
-          {vista === 'nuevo' ? 'Cancelar Alta' : '+ Nuevo Equipo'}
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={vista === 'nuevo' ? '#ffffff' : '#334155'}
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>{vista === 'nuevo' ? 'Cancelar Alta' : 'Nuevo Equipo'}</span>
         </button>
       </div>
 
-      {/* VISTA 1: Escáner QR de Cámara (Sprint 4: HU3 / TC04 / TC05) */}
       {vista === 'escanear' && (
         <QRScannerScreen
           onBack={() => setVista('catalogo')}
-          onEquipoEncontrado={(eq) => {
-            setEquipoFicha(eq);
+          onEquipoEncontrado={(equipo) => {
+            setEquipoFicha(equipo);
           }}
           equiposDisponibles={equipos}
         />
       )}
 
-      {/* VISTA 2: Formulario de Registro o Edición */}
       {vista === 'nuevo' && (
-        <RegisterEquipmentScreen 
-          session={session} 
-          onEquipoAgregado={() => { fetchEquipos(); setEquipoAEditar(null); setVista('catalogo'); }} 
+        <RegisterEquipmentScreen
+          session={session}
+          onEquipoAgregado={() => {
+            fetchEquipos();
+            setEquipoAEditar(null);
+            setVista('catalogo');
+          }}
           equipoAEditar={equipoAEditar}
-          onCancelEdit={() => { setEquipoAEditar(null); setVista('catalogo'); }}
+          onCancelEdit={() => {
+            setEquipoAEditar(null);
+            setVista('catalogo');
+          }}
         />
       )}
 
-      {/* VISTA 3: Catálogo General de Equipos */}
       {vista === 'catalogo' && (
         <div style={styles.listContainer}>
           <div style={styles.catalogHeader}>
-            <h3 style={styles.sectionTitle}>Equipos Registrados</h3>
-            <button
-              onClick={() => setVista('escanear')}
-              style={styles.quickScanBtn}
-            >
-              📷 Abrir Escáner QR
+            <h3 style={styles.sectionTitle}>
+              Equipos
+              <br />
+              Registrados
+            </h3>
+            <button onClick={() => setVista('escanear')} style={styles.quickScanBtn}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                <line x1="7" y1="12" x2="17" y2="12" />
+              </svg>
+              <span>Abrir Escáner QR</span>
             </button>
           </div>
 
           {loading ? (
-            <p style={{ color: '#94a3b8', textAlign: 'center', padding: '30px' }}>
-              Cargando equipos...
-            </p>
+            <div style={styles.emptyState}>
+              <p style={{ color: '#475569', fontWeight: 700, fontSize: '14px' }}>Cargando catálogo de equipos...</p>
+            </div>
           ) : equipos.length === 0 ? (
             <div style={styles.emptyState}>
-              <span style={{ fontSize: '36px' }}>📭</span>
-              <p style={{ color: '#ffffff', fontWeight: '600', marginTop: '12px', fontSize: '15px' }}>
-                No hay equipos registrados aún
+              <p style={{ color: '#172554', fontWeight: 800, marginTop: '4px', fontSize: '16px' }}>No hay equipos registrados aún</p>
+              <p style={{ color: '#64748b', fontSize: '12.5px', textAlign: 'center', maxWidth: '300px', marginTop: '4px' }}>
+                Da de alta un equipo con "Nuevo Equipo" para generar su código QR o prueba el escáner.
               </p>
-              <p style={{ color: '#94a3b8', fontSize: '12px', textAlign: 'center', maxWidth: '300px' }}>
-                Da de alta un equipo con "+ Nuevo Equipo" para generar su código QR o prueba el escáner.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-                <button
-                  onClick={() => setVista('nuevo')}
-                  style={{ ...styles.actionBtn, backgroundColor: '#2563eb', color: '#fff', border: 'none' }}
-                >
+              <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
+                <button onClick={() => setVista('nuevo')} style={styles.fichaPrimaryBtn}>
                   + Registrar primer equipo
                 </button>
-                <button
-                  onClick={() => setVista('escanear')}
-                  style={{ ...styles.actionBtn, backgroundColor: 'rgba(59, 130, 246, 0.2)' }}
-                >
-                  📷 Probar Escáner QR
+                <button onClick={() => setVista('escanear')} style={styles.whiteClayActionBtn}>
+                  Probar Escáner QR
                 </button>
               </div>
             </div>
           ) : (
             <div style={styles.grid}>
-              {equipos.map((equipo) => (
-                <div key={equipo.id} style={styles.card}>
-                  <div style={styles.cardHeader}>
-                    <span style={styles.deviceType}>
-                      {equipo.tipo_dispositivo === 'laptop' ? '💻' : equipo.tipo_dispositivo === 'desktop' ? '🖥️' : '🗄️'}
-                      <span style={{textTransform: 'capitalize'}}>{equipo.tipo_dispositivo}</span>
-                    </span>
-                    <span style={styles.serial}>SN: {equipo.numero_serie}</span>
-                  </div>
+              {equipos.map((equipo) => {
+                const idVal = equipo.id || equipo.id_equipo;
+                const isQRExpanded = verQR === idVal;
 
-                  <div style={styles.specs}>
-                    <div style={styles.specItem}>
-                      <span style={styles.specLabel}>CPU:</span> {equipo.procesador}
+                return (
+                  <div key={idVal} style={styles.card}>
+                    {/* Header: Device Icon, Name, and Serial Pill */}
+                    <div style={styles.cardHeader}>
+                      <div style={styles.deviceTypeWrap}>
+                        <DeviceIcon tipo={equipo.tipo_dispositivo} />
+                        <span style={styles.deviceTypeTitle}>{equipo.tipo_dispositivo || 'Equipo'}</span>
+                      </div>
+                      <span style={styles.serialPill}>SN: {equipo.numero_serie}</span>
                     </div>
-                    <div style={styles.specItem}>
-                      <span style={styles.specLabel}>RAM:</span> {equipo.ram}
-                    </div>
-                    <div style={styles.specItem}>
-                      <span style={styles.specLabel}>Disco:</span> {equipo.almacenamiento}
-                    </div>
-                  </div>
-                  
-                  {/* Vista expandida de QR con opciones de impresión y descarga */}
-                  {verQR === equipo.id && (
-                    <div
-                      data-card-qr={equipo.id}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        background: 'white',
-                        padding: '14px',
-                        borderRadius: '12px',
-                        margin: '14px 0',
-                        color: '#0f172a'
-                      }}
-                    >
-                      <QRCode value={equipo.codigo_qr} size={110} />
-                      <p style={{ color: '#0f172a', fontSize: '11px', fontWeight: 'bold', margin: '8px 0 2px 0' }}>
-                        SN: {equipo.numero_serie}
-                      </p>
-                      <p style={{ color: '#64748b', fontSize: '10px', margin: '0 0 10px 0', wordBreak: 'break-all' }}>
-                        {equipo.codigo_qr}
-                      </p>
 
-                      <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-                        <button
-                          onClick={() => handleDescargarCardQR(equipo)}
-                          style={styles.cardDownloadBtn}
-                        >
-                          📥 Descargar QR (PNG)
-                        </button>
-                        <button
-                          onClick={() => handleImprimirCardQR(equipo)}
-                          style={styles.cardPrintBtn}
-                        >
-                          🖨️ Imprimir Etiqueta
-                        </button>
+                    {/* Recessed Specs Box */}
+                    <div style={styles.specsRecessedBox}>
+                      <div style={styles.specRow}>
+                        <span style={styles.specLabel}>CPU</span>
+                        <span style={styles.specVal}>{equipo.procesador || 'No especificado'}</span>
+                      </div>
+                      <div style={styles.specRow}>
+                        <span style={styles.specLabel}>RAM</span>
+                        <span style={styles.specVal}>{equipo.ram || 'No especificado'}</span>
+                      </div>
+                      <div style={styles.specRow}>
+                        <span style={styles.specLabel}>Disco</span>
+                        <span style={styles.specVal}>{equipo.almacenamiento || 'No especificado'}</span>
                       </div>
                     </div>
-                  )}
 
-                  {/* Botones de acción */}
-                  <div style={styles.cardFooterActions}>
-                    <button
-                      onClick={() => setEquipoFicha(equipo)}
-                      style={{ ...styles.actionBtn, backgroundColor: 'rgba(59, 130, 246, 0.25)', borderColor: '#3b82f6', color: '#93c5fd', fontWeight: '600' }}
-                    >
-                      📋 Ficha e Historial
-                    </button>
-                    <button
-                      onClick={() => setVerQR(verQR === equipo.id ? null : equipo.id)}
-                      style={{...styles.actionBtn, borderColor: 'rgba(167, 139, 250, 0.4)', color: '#c4b5fd'}}
-                    >
-                      {verQR === equipo.id ? 'Ocultar QR' : 'Ver QR'}
-                    </button>
-                    <button onClick={() => handleEdit(equipo)} style={styles.actionBtn}>
-                      Editar
-                    </button>
-                    <button onClick={() => handleDelete(equipo.id)} style={{...styles.actionBtn, color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)'}}>
-                      Eliminar
-                    </button>
+                    {/* QR Code Expanded */}
+                    {isQRExpanded && (
+                      <div data-card-qr={idVal} style={styles.qrExpandedCard}>
+                        <div style={styles.qrWhiteFrame}>
+                          <QRCode value={equipo.codigo_qr} size={115} />
+                        </div>
+                        <p style={{ color: '#172554', fontSize: '12px', fontWeight: 800, margin: '8px 0 2px 0' }}>
+                          SN: {equipo.numero_serie}
+                        </p>
+                        <p style={{ color: '#64748b', fontSize: '10.5px', margin: '0 0 12px 0', wordBreak: 'break-all', textAlign: 'center' }}>
+                          {equipo.codigo_qr}
+                        </p>
+                        <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
+                          <button onClick={() => handleDescargarCardQR(equipo)} style={styles.cardDownloadBtn}>
+                            Descargar Etiqueta
+                          </button>
+                          <button onClick={() => handleImprimirCardQR(equipo)} style={styles.cardPrintBtn}>
+                            Imprimir
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div style={styles.cardFooterActions}>
+                      <button onClick={() => setEquipoFicha(equipo)} style={styles.fichaPrimaryBtn}>
+                        Ficha e Historial
+                      </button>
+                      <button onClick={() => setVerQR(isQRExpanded ? null : idVal)} style={styles.whiteClayActionBtn}>
+                        {isQRExpanded ? 'Ocultar QR' : 'Ver QR'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* Modal de Ficha Técnica e Historial (TC04 / TC11) */}
+      {/* Modal Ficha Técnica Completa */}
       {equipoFicha && (
         <FichaTecnicaModal
           equipo={equipoFicha}
           onClose={() => setEquipoFicha(null)}
-          onScanAnother={() => {
+          onEdit={(eq) => {
             setEquipoFicha(null);
-            setVista('escanear');
+            handleEdit(eq);
+          }}
+          onDelete={async (id) => {
+            await handleDelete(id);
+            setEquipoFicha(null);
           }}
           currentUserEmail={session.user.email}
         />
@@ -299,98 +419,118 @@ export default function EquiposCatalog({ session, onLogout }: { session: any, on
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     width: '100%',
-    maxWidth: '560px',
+    maxWidth: '420px',
     margin: '0 auto',
-    padding: '16px 12px',
+    padding: '8px 6px 28px 6px',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
-    overflowY: 'auto',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
-    background: 'rgba(30, 58, 138, 0.4)',
-    padding: '14px 16px',
-    borderRadius: '16px',
-    border: '1px solid rgba(59, 130, 246, 0.3)'
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    padding: '18px 20px',
+    borderRadius: '28px',
+    border: '1.5px solid rgba(255, 255, 255, 0.9)',
+    boxShadow:
+      '14px 16px 32px rgba(145, 165, 210, 0.45), -8px -8px 22px rgba(255, 255, 255, 0.95), inset 0 2px 5px rgba(255, 255, 255, 1), inset 0 -4px 8px rgba(195, 209, 245, 0.5)',
   },
   title: {
-    color: '#ffffff',
-    fontSize: '20px',
-    fontWeight: '700',
-    margin: '0 0 2px 0'
+    color: '#172554',
+    fontSize: '21px',
+    fontWeight: 800,
+    margin: '0 0 3px 0',
+    letterSpacing: '-0.3px',
   },
   subtitle: {
-    color: '#93c5fd',
-    fontSize: '12px',
-    margin: 0
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 600,
+    margin: 0,
   },
   logoutBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    color: '#ef4444',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    padding: '6px 12px',
-    borderRadius: '8px',
+    background: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
+    color: '#be123c',
+    border: '1px solid rgba(255, 255, 255, 0.7)',
+    padding: '10px 16px',
+    borderRadius: '18px',
     cursor: 'pointer',
-    fontWeight: '600',
-    fontSize: '12px'
+    fontWeight: 800,
+    fontSize: '13px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    boxShadow:
+      '6px 8px 16px rgba(225, 150, 165, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.85), inset 0 2px 4px rgba(255, 255, 255, 0.8), inset 0 -3px 6px rgba(244, 63, 94, 0.2)',
   },
   navigationTabs: {
     display: 'flex',
-    gap: '6px',
-    marginBottom: '16px',
-    background: 'rgba(15, 23, 42, 0.7)',
-    padding: '4px',
-    borderRadius: '12px',
-    border: '1px solid rgba(96, 165, 250, 0.2)'
+    gap: '8px',
+    marginBottom: '20px',
+    background: '#e3eaf8',
+    padding: '7px',
+    borderRadius: '26px',
+    border: '1px solid rgba(255, 255, 255, 0.7)',
+    boxShadow:
+      'inset 5px 5px 10px rgba(158, 175, 214, 0.55), inset -5px -5px 10px rgba(255, 255, 255, 0.9), 8px 10px 24px rgba(145, 165, 210, 0.3)',
   },
   navTab: {
     flex: 1,
-    padding: '8px 10px',
+    padding: '11px 6px',
     background: 'transparent',
     border: 'none',
-    color: '#94a3b8',
-    borderRadius: '8px',
+    color: '#1e293b',
+    borderRadius: '20px',
     cursor: 'pointer',
     fontSize: '12px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    textAlign: 'center'
+    fontWeight: 700,
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '5px',
   },
   navTabActive: {
-    background: 'linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
     color: '#ffffff',
-    boxShadow: '0 2px 8px rgba(29, 78, 216, 0.5)'
+    boxShadow:
+      '0 8px 18px rgba(37, 99, 235, 0.4), inset 0 3px 5px rgba(255, 255, 255, 0.45), inset 0 -3px 6px rgba(29, 78, 216, 0.65)',
   },
   catalogHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '14px',
-    padding: '0 4px'
+    marginBottom: '16px',
+    padding: '0 4px',
   },
   sectionTitle: {
-    color: '#f8fafc',
-    fontSize: '16px',
+    color: '#172554',
+    fontSize: '20px',
+    lineHeight: '1.2',
     margin: 0,
-    fontWeight: '600'
+    fontWeight: 800,
   },
   quickScanBtn: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    color: '#60a5fa',
-    border: '1px solid #3b82f6',
-    padding: '6px 12px',
-    borderRadius: '8px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#2563eb',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    padding: '11px 16px',
+    borderRadius: '20px',
     cursor: 'pointer',
-    fontWeight: '600',
-    fontSize: '12px'
+    fontWeight: 800,
+    fontSize: '12.5px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+    boxShadow:
+      '8px 10px 20px rgba(148, 166, 212, 0.42), -5px -5px 14px rgba(255, 255, 255, 0.95), inset 0 2px 4px #ffffff, inset 0 -3px 5px rgba(199, 210, 245, 0.45)',
   },
   listContainer: {
-    flex: 1
+    flex: 1,
   },
   emptyState: {
     display: 'flex',
@@ -398,101 +538,172 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: '36px 20px',
-    background: 'rgba(15, 23, 42, 0.45)',
-    borderRadius: '16px',
-    border: '1px dashed rgba(148, 163, 184, 0.3)'
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    borderRadius: '30px',
+    border: '1.5px solid rgba(255, 255, 255, 0.85)',
+    boxShadow: '14px 16px 32px rgba(145, 165, 210, 0.4), -8px -8px 20px rgba(255, 255, 255, 0.95)',
   },
   grid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '14px'
+    gap: '20px',
   },
   card: {
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    border: '1px solid rgba(96, 165, 250, 0.25)',
-    borderRadius: '16px',
-    padding: '16px',
-    color: '#e2e8f0',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.15)'
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    border: '1.5px solid rgba(255, 255, 255, 0.9)',
+    borderRadius: '32px',
+    padding: '20px 18px',
+    color: '#1e293b',
+    boxShadow:
+      '16px 18px 36px rgba(142, 162, 210, 0.48), -10px -10px 24px rgba(255, 255, 255, 0.95), inset 0 3px 5px rgba(255, 255, 255, 1), inset 0 -4px 8px rgba(195, 209, 245, 0.45)',
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    paddingBottom: '10px',
-    marginBottom: '12px'
-  },
-  deviceType: {
-    fontWeight: '600',
-    color: '#bfdbfe',
-    display: 'flex',
+    marginBottom: '14px',
     gap: '8px',
+  },
+  deviceTypeWrap: {
+    display: 'flex',
     alignItems: 'center',
-    fontSize: '14px'
+    gap: '12px',
   },
-  serial: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    background: 'rgba(255,255,255,0.06)',
-    padding: '3px 8px',
-    borderRadius: '6px'
+  deviceIconBox: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  specs: {
+  deviceTypeTitle: {
+    fontWeight: 800,
+    color: '#172554',
+    fontSize: '18px',
+    textTransform: 'capitalize',
+  },
+  serialPill: {
+    fontSize: '11.5px',
+    fontWeight: 700,
+    color: '#334155',
+    background: '#e3eaf8',
+    padding: '7px 13px',
+    borderRadius: '14px',
+    boxShadow: 'inset 3px 3px 6px rgba(163, 179, 214, 0.55), inset -3px -3px 6px rgba(255, 255, 255, 0.9)',
+  },
+  specsRecessedBox: {
+    background: '#e4ebf8',
+    borderRadius: '22px',
+    padding: '14px 16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px'
+    gap: '10px',
+    marginBottom: '16px',
+    boxShadow: 'inset 5px 5px 10px rgba(160, 176, 212, 0.55), inset -5px -5px 10px rgba(255, 255, 255, 0.9)',
   },
-  specItem: {
-    fontSize: '12px',
-    color: '#cbd5e1',
-    display: 'flex'
+  specRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    fontSize: '13px',
+    lineHeight: '1.35',
   },
   specLabel: {
-    color: '#94a3b8',
-    width: '60px',
-    fontWeight: '500'
+    color: '#475569',
+    width: '56px',
+    fontWeight: 600,
+    flexShrink: 0,
+  },
+  specVal: {
+    color: '#172554',
+    fontWeight: 700,
+    flex: 1,
+  },
+  qrExpandedCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    background: 'linear-gradient(145deg, #ffffff 0%, #f1f5ff 100%)',
+    padding: '16px',
+    borderRadius: '22px',
+    marginBottom: '16px',
+    boxShadow: '8px 8px 18px rgba(155, 172, 212, 0.38), -4px -4px 12px rgba(255, 255, 255, 0.95), inset 0 2px 4px #ffffff',
+  },
+  qrWhiteFrame: {
+    background: '#ffffff',
+    padding: '10px',
+    borderRadius: '16px',
+    boxShadow: '0 4px 12px rgba(148, 163, 209, 0.3)',
   },
   cardFooterActions: {
-    display: 'flex',
-    gap: '6px',
-    marginTop: '12px',
-    paddingTop: '12px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    flexWrap: 'wrap'
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '10px',
+    alignItems: 'stretch',
   },
-  actionBtn: {
-    padding: '6px 10px',
-    background: 'transparent',
-    border: '1px solid rgba(147, 197, 253, 0.3)',
-    borderRadius: '6px',
-    color: '#93c5fd',
+  fichaPrimaryBtn: {
+    padding: '10px 8px',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '16px',
     cursor: 'pointer',
-    fontSize: '11px',
-    flex: 1,
-    minWidth: '65px',
-    textAlign: 'center'
+    fontSize: '12px',
+    fontWeight: 800,
+    lineHeight: '1.2',
+    textAlign: 'center',
+    boxShadow:
+      '0 8px 16px rgba(37, 99, 235, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.45), inset 0 -3px 5px rgba(29, 78, 216, 0.65)',
+  },
+  whiteClayActionBtn: {
+    padding: '10px 6px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#1e3a8a',
+    border: '1px solid rgba(255, 255, 255, 0.85)',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 700,
+    textAlign: 'center',
+    boxShadow:
+      '6px 6px 14px rgba(155, 172, 212, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.95), inset 0 2px 3px #ffffff, inset 0 -2px 4px rgba(203, 213, 235, 0.45)',
+  },
+  dangerClayActionBtn: {
+    padding: '10px 6px',
+    background: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
+    color: '#be123c',
+    border: '1px solid rgba(255, 255, 255, 0.7)',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 800,
+    textAlign: 'center',
+    boxShadow:
+      '6px 6px 14px rgba(225, 150, 165, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.85), inset 0 2px 3px rgba(255, 255, 255, 0.8), inset 0 -2px 4px rgba(244, 63, 94, 0.2)',
   },
   cardDownloadBtn: {
     flex: 1,
-    padding: '6px 8px',
-    backgroundColor: '#1e3a8a',
+    padding: '9px 10px',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
     color: 'white',
     border: 'none',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: '600',
-    cursor: 'pointer'
+    borderRadius: '14px',
+    fontSize: '11.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 6px 14px rgba(37, 99, 235, 0.3), inset 0 2px 3px rgba(255,255,255,0.4)',
   },
   cardPrintBtn: {
     flex: 1,
-    padding: '6px 8px',
-    backgroundColor: '#f1f5f9',
-    color: '#0f172a',
-    border: '1px solid #cbd5e1',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  }
+    padding: '9px 10px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#2563eb',
+    border: 'none',
+    borderRadius: '14px',
+    fontSize: '11.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '4px 4px 10px rgba(155, 172, 212, 0.4), inset 0 2px 3px #ffffff',
+  },
 };

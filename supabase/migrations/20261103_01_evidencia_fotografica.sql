@@ -62,3 +62,4 @@ CREATE POLICY "Permitir subida de evidencias a técnicos"
 CREATE POLICY "Permitir eliminar evidencias del bucket"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'evidencias-servicio');
+

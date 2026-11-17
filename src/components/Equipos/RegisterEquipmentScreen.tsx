@@ -135,29 +135,39 @@ export default function RegisterEquipmentScreen({ session, onEquipoAgregado, equ
             Código QR generado y listo para rotular en el equipo físico.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
             <button
               type="button"
               className="submit-btn"
               onClick={handleDescargar}
-              style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}
             >
-              📥 Descargar Etiqueta QR (PNG)
+              Descargar Etiqueta QR
             </button>
             <button
               type="button"
               className="submit-btn"
               onClick={handleImprimir}
-              style={{ background: 'rgba(59, 130, 246, 0.25)', border: '1px solid rgba(96, 165, 250, 0.5)' }}
+              style={{
+                background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+                color: '#2563eb',
+                border: '1px solid rgba(255, 255, 255, 0.9)',
+                boxShadow: '6px 6px 14px rgba(148, 166, 212, 0.4), inset 0 2px 3px #ffffff'
+              }}
             >
-              🖨️ Mandar a Imprimir Etiqueta
+              Imprimir Etiqueta
             </button>
           </div>
 
           <button
+            type="button"
             className="submit-btn"
             onClick={() => setSaved(null)}
-            style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', boxShadow: 'none' }}
+            style={{
+              background: 'transparent',
+              color: '#475569',
+              border: 'none',
+              boxShadow: 'none'
+            }}
           >
             Registrar otro equipo
           </button>
@@ -230,7 +240,19 @@ export default function RegisterEquipmentScreen({ session, onEquipoAgregado, equ
             {loading ? "Guardando..." : (equipoAEditar ? "Actualizar equipo" : "Guardar equipo")}
           </button>
           {equipoAEditar && (
-            <button type="button" onClick={onCancelEdit} disabled={loading} className="submit-btn" style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', marginTop: '8px' }}>
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              disabled={loading}
+              className="submit-btn"
+              style={{
+                background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+                color: '#475569',
+                border: '1px solid rgba(255, 255, 255, 0.9)',
+                marginTop: '10px',
+                boxShadow: '6px 6px 14px rgba(148, 166, 212, 0.4), inset 0 2px 3px #ffffff'
+              }}
+            >
               Cancelar
             </button>
           )}

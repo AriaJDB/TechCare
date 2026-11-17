@@ -43,3 +43,4 @@
 * **Suites ejecutadas:** 7 suites (incluye todas las pruebas previas de Sprint 4 y Sprint 6).
 * **Pruebas unitarias totales:** 76 pruebas aprobadas (0 fallidas).
 * **Build de producción:** `npm run build` ejecutado exitosamente sin advertencias.
+
