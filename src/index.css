@@ -64,3 +64,46 @@ button, input, select, textarea {
     top: 86%;
   }
 }
+
+/* ==========================================================================
+   ESTILOS OPTIMIZADOS PARA VISOR DE CÁMARA QR (ANDROID WEBVIEW / CAPACITOR)
+   ========================================================================== */
+#techcare-qr-reader {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  border: none !important;
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  background-color: #0b1329 !important;
+  display: block !important;
+}
+
+#techcare-qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 28px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#techcare-qr-reader canvas {
+  pointer-events: none !important;
+}
+
+#techcare-qr-reader img {
+  display: none !important;
+}
+
+#techcare-qr-reader__scan_region {
+  border-radius: 20px !important;
+}
+

@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { Capacitor } from '@capacitor/core';
+import { Camera } from '@capacitor/camera';
 import { supabase } from '../../supabaseClient';
 
 interface QRScannerScreenProps {
   onBack: () => void;
   onEquipoEncontrado: (equipo: any) => void;
   equiposDisponibles?: any[];
+}
+
+interface CameraDevice {
+  id: string;
+  label: string;
 }
 
 export default function QRScannerScreen({
@@ -18,6 +25,8 @@ export default function QRScannerScreen({
   const [searching, setSearching] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [notFoundCode, setNotFoundCode] = useState<string | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<CameraDevice[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,65 +90,200 @@ export default function QRScannerScreen({
     }
   };
 
+  const ensureVideoStyle = () => {
+    try {
+      const container = document.getElementById(scannerContainerId);
+      if (!container) return;
+      const video = container.querySelector('video');
+      if (video) {
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.minWidth = '100%';
+        video.style.minHeight = '100%';
+        video.style.maxWidth = '100%';
+        video.style.maxHeight = '100%';
+        video.style.objectFit = 'cover';
+        video.style.borderRadius = '28px';
+        video.style.display = 'block';
+        video.style.visibility = 'visible';
+        video.style.opacity = '1';
+        if (video.paused) {
+          video.play().catch((err) => console.warn('Error al iniciar reproducción de video:', err));
+        }
+      }
+    } catch (e) {
+      console.warn('Error al ajustar estilos de video:', e);
+    }
+  };
+
+  const startCameraWithDevice = async (cameraSource?: string | { facingMode: string }) => {
+    try {
+      setCameraError(null);
+      setCameraActive(false);
+
+      // Detener escáner previo si estaba activo
+      if (html5QrCodeRef.current) {
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            await html5QrCodeRef.current.stop();
+          }
+          html5QrCodeRef.current.clear();
+        } catch (cleanupErr) {
+          console.warn('Error limpiando escáner previo:', cleanupErr);
+        }
+      }
+
+      // 1. Permisos nativos si está en Capacitor (Android/iOS)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const perm = await Camera.checkPermissions();
+          if (perm.camera !== 'granted') {
+            const requested = await Camera.requestPermissions({ permissions: ['camera'] });
+            if (requested.camera !== 'granted') {
+              throw new Error('Permiso de cámara no concedido en el dispositivo.');
+            }
+          }
+        } catch (nativePermErr: any) {
+          console.warn('Verificación de permisos nativos:', nativePermErr);
+        }
+      }
+
+      // 2. Obtener lista de cámaras si no las tenemos
+      let targetSource = cameraSource;
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          setAvailableCameras(devices);
+          if (!targetSource) {
+            // Buscar la cámara trasera
+            const rearIndex = devices.findIndex((d) => {
+              const label = (d.label || '').toLowerCase();
+              return (
+                label.includes('back') ||
+                label.includes('rear') ||
+                label.includes('trasera') ||
+                label.includes('posterior') ||
+                label.includes('environment')
+              );
+            });
+            if (rearIndex !== -1) {
+              setCurrentCameraIndex(rearIndex);
+              targetSource = devices[rearIndex].id;
+            } else if (devices.length > 1) {
+              setCurrentCameraIndex(devices.length - 1);
+              targetSource = devices[devices.length - 1].id;
+            } else {
+              setCurrentCameraIndex(0);
+              targetSource = devices[0].id;
+            }
+          }
+        }
+      } catch (listErr) {
+        console.warn('No se pudo listar cámaras con getCameras:', listErr);
+      }
+
+      if (!targetSource) {
+        targetSource = { facingMode: 'environment' };
+      }
+
+      // 3. Crear escáner
+      const scanner = new Html5Qrcode(scannerContainerId, {
+        verbose: false,
+      });
+      html5QrCodeRef.current = scanner;
+
+      // Configuración de escaneo adaptable
+      const qrConfig = {
+        fps: 15,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.max(160, Math.floor(edge * 0.75));
+          return { width: size, height: size };
+        },
+        aspectRatio: 1.0,
+      };
+
+      await scanner.start(
+        targetSource,
+        qrConfig,
+        (decodedText) => {
+          handleQRScanned(decodedText);
+        },
+        () => {
+          // Loop de escaneo de fotogramas
+        }
+      );
+
+      // 4. Ajustar estilos del video
+      ensureVideoStyle();
+      setCameraActive(true);
+    } catch (err: any) {
+      console.warn('Fallo al iniciar cámara con la fuente solicitada:', err);
+      // Fallback intentando facingMode directo si falló con deviceId
+      if (typeof cameraSource === 'string') {
+        try {
+          const scannerFallback = new Html5Qrcode(scannerContainerId, { verbose: false });
+          html5QrCodeRef.current = scannerFallback;
+          await scannerFallback.start(
+            { facingMode: 'environment' },
+            {
+              fps: 15,
+              qrbox: { width: 200, height: 200 },
+              aspectRatio: 1.0,
+            },
+            (decodedText) => handleQRScanned(decodedText),
+            () => {}
+          );
+          ensureVideoStyle();
+          setCameraActive(true);
+          return;
+        } catch (fallbackErr) {
+          console.warn('Fallo también el fallback facingMode:', fallbackErr);
+        }
+      }
+
+      setCameraActive(false);
+      let mensaje = 'No se pudo iniciar la cámara en este dispositivo.';
+      if (err?.name === 'NotAllowedError' || String(err).includes('Permiso')) {
+        mensaje = 'Permiso de cámara denegado. Habilita los permisos de cámara en Ajustes de la app.';
+      } else if (err?.name === 'NotFoundError') {
+        mensaje = 'No se detectó cámara trasera disponible.';
+      } else if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
+        mensaje = 'Se requiere HTTPS o localhost para activar la cámara.';
+      }
+      setCameraError(mensaje);
+    }
+  };
+
   // Iniciar la cámara al montar
   useEffect(() => {
     let isMounted = true;
+    startCameraWithDevice();
 
-    async function startCamera() {
-      try {
-        setCameraError(null);
-        const scanner = new Html5Qrcode(scannerContainerId);
-        html5QrCodeRef.current = scanner;
-
-        // Configuración de escaneo
-        const qrConfig = {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1.0,
-        };
-
-        // Solicitar cámara trasera (environment) para smartphones
-        await scanner.start(
-          { facingMode: 'environment' },
-          qrConfig,
-          (decodedText) => {
-            if (isMounted) {
-              handleQRScanned(decodedText);
-            }
-          },
-          () => {
-            // Frame scan loop
-          }
-        );
-
-        if (isMounted) {
-          setCameraActive(true);
-        }
-      } catch (err: any) {
-        if (isMounted) {
-          console.warn('No se pudo iniciar la cámara automáticamente:', err);
-          setCameraActive(false);
-          let mensaje = 'No se pudo acceder a la cámara.';
-          if (err?.name === 'NotAllowedError') {
-            mensaje = 'Permiso de cámara denegado. Concede permisos a la aplicación o al navegador.';
-          } else if (err?.name === 'NotFoundError') {
-            mensaje = 'No se detectó ninguna cámara disponible en este dispositivo.';
-          } else if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
-            mensaje = 'Los navegadores móviles requieren HTTPS o localhost para encender la cámara web.';
-          }
-          setCameraError(mensaje);
-        }
-      }
-    }
-
-    startCamera();
+    const interval = setInterval(() => {
+      if (isMounted) ensureVideoStyle();
+    }, 800);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
       stopCamera();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSwitchCamera = async () => {
+    if (availableCameras.length <= 1) {
+      await startCameraWithDevice({ facingMode: 'environment' });
+      return;
+    }
+    const nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+    setCurrentCameraIndex(nextIndex);
+    await startCameraWithDevice(availableCameras[nextIndex].id);
+  };
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,7 +295,7 @@ export default function QRScannerScreen({
     try {
       let scanner = html5QrCodeRef.current;
       if (!scanner) {
-        scanner = new Html5Qrcode(scannerContainerId);
+        scanner = new Html5Qrcode(scannerContainerId, { verbose: false });
         html5QrCodeRef.current = scanner;
       }
       const decodedText = await scanner.scanFile(file, true);
@@ -201,22 +345,17 @@ export default function QRScannerScreen({
 
         {/* Visor de cámara / Escáner */}
         <div style={styles.viewfinderWrapper}>
-          <div
-            id={scannerContainerId}
-            style={{
-              width: '100%',
-              height: '100%',
-              overflow: 'hidden',
-              display: cameraActive ? 'block' : 'none',
-            }}
-          />
+          {/* El contenedor techcare-qr-reader SIEMPRE permanece en el DOM para que Html5Qrcode dimensione el video correctamente */}
+          <div id={scannerContainerId} style={styles.scannerHost} />
 
+          {/* Overlay de carga mientras la cámara se sincroniza */}
           {!cameraActive && (
-            <div style={styles.placeholderIcon}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
+            <div style={styles.loadingOverlay}>
+              <div style={styles.spinnerIcon}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+              </div>
               <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: 700, marginTop: '8px', textAlign: 'center' }}>
                 {searching ? 'Analizando código...' : 'Iniciando cámara...'}
               </p>
@@ -235,19 +374,26 @@ export default function QRScannerScreen({
           {cameraActive && !searching && <div style={styles.scanLine} />}
         </div>
 
+        {/* Botón para cambiar lente si el dispositivo tiene múltiples cámaras */}
+        {availableCameras.length > 1 && (
+          <button onClick={handleSwitchCamera} style={styles.switchCamBtn}>
+            🔄 Cambiar lente ({currentCameraIndex + 1}/{availableCameras.length})
+          </button>
+        )}
+
         {searching && (
           <p style={{ color: '#2563eb', fontSize: '12.5px', fontWeight: 700, textAlign: 'center', margin: '8px 0' }}>
             Buscando ficha técnica e historial...
           </p>
         )}
 
-        {/* Mensaje si la cámara falló */}
+        {/* Mensaje si la cámara falló con opción de reintentar */}
         {cameraError && (
           <div style={styles.cameraErrorBox}>
-            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 700 }}>{cameraError}</p>
-            <p style={{ margin: 0, fontSize: '11px', color: '#854d0e' }}>
-              Puedes cargar una foto de la etiqueta QR o escribir el número de serie abajo.
-            </p>
+            <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 700 }}>{cameraError}</p>
+            <button onClick={() => startCameraWithDevice()} style={styles.retryBtn}>
+              🔄 Reintentar encender cámara
+            </button>
           </div>
         )}
 
@@ -260,7 +406,7 @@ export default function QRScannerScreen({
           onChange={handleFileScan}
         />
         <button onClick={() => fileInputRef.current?.click()} style={styles.fileBtn}>
-          Cargar foto / imagen de QR
+          📁 Cargar foto / captura de QR
         </button>
 
         {/* Entrada manual de número de serie o código */}
@@ -375,77 +521,113 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   viewfinderWrapper: {
     position: 'relative',
-    width: '250px',
-    height: '250px',
+    width: '260px',
+    height: '260px',
     borderRadius: '28px',
     overflow: 'hidden',
-    backgroundColor: '#e3eaf8',
+    backgroundColor: '#0a152d',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: '16px',
-    boxShadow: 'inset 6px 6px 14px rgba(155, 172, 212, 0.6), inset -6px -6px 14px rgba(255, 255, 255, 0.9)',
+    marginBottom: '14px',
+    boxShadow: 'inset 0 0 24px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(37, 99, 235, 0.16)',
+  },
+  scannerHost: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    borderRadius: '28px',
+    overflow: 'hidden',
+    display: 'block',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#e3eaf8',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '28px',
+    zIndex: 5,
+  },
+  spinnerIcon: {
+    animation: 'spin 1.4s linear infinite',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   frameCorners: {
     position: 'absolute',
-    top: '22px',
-    left: '22px',
-    right: '22px',
-    bottom: '22px',
+    top: '20px',
+    left: '20px',
+    right: '20px',
+    bottom: '20px',
     pointerEvents: 'none',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
+    zIndex: 10,
   },
   corner: {
     position: 'absolute',
     width: '32px',
     height: '32px',
-    borderColor: '#2563eb',
+    borderColor: '#3b82f6',
   },
   cornerTL: {
     top: 0,
     left: 0,
-    borderTop: '4px solid #2563eb',
-    borderLeft: '4px solid #2563eb',
+    borderTop: '4px solid #3b82f6',
+    borderLeft: '4px solid #3b82f6',
     borderTopLeftRadius: '14px',
   },
   cornerTR: {
     top: 0,
     right: 0,
-    borderTop: '4px solid #2563eb',
-    borderRight: '4px solid #2563eb',
+    borderTop: '4px solid #3b82f6',
+    borderRight: '4px solid #3b82f6',
     borderTopRightRadius: '14px',
   },
   cornerBL: {
     bottom: 0,
     left: 0,
-    borderBottom: '4px solid #2563eb',
-    borderLeft: '4px solid #2563eb',
+    borderBottom: '4px solid #3b82f6',
+    borderLeft: '4px solid #3b82f6',
     borderBottomLeftRadius: '14px',
   },
   cornerBR: {
     bottom: 0,
     right: 0,
-    borderBottom: '4px solid #2563eb',
-    borderRight: '4px solid #2563eb',
+    borderBottom: '4px solid #3b82f6',
+    borderRight: '4px solid #3b82f6',
     borderBottomRightRadius: '14px',
-  },
-  placeholderIcon: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   scanLine: {
     position: 'absolute',
     top: '10%',
-    left: '5%',
-    right: '5%',
+    left: '8%',
+    right: '8%',
     height: '3px',
-    background: 'linear-gradient(90deg, transparent, #2563eb, transparent)',
-    boxShadow: '0 0 8px #3b82f6',
+    background: 'linear-gradient(90deg, transparent, #60a5fa, #3b82f6, transparent)',
+    boxShadow: '0 0 10px #3b82f6',
     animation: 'scanAnimation 2.2s ease-in-out infinite',
+    zIndex: 10,
+    pointerEvents: 'none',
+  },
+  switchCamBtn: {
+    padding: '6px 14px',
+    background: '#ffffff',
+    color: '#2563eb',
+    border: '1px solid #bfdbfe',
+    borderRadius: '12px',
+    fontSize: '11px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginBottom: '12px',
+    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.1)',
   },
   cameraErrorBox: {
     width: '100%',
@@ -456,6 +638,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     marginBottom: '14px',
     textAlign: 'center',
     boxSizing: 'border-box',
+  },
+  retryBtn: {
+    marginTop: '6px',
+    padding: '6px 14px',
+    backgroundColor: '#854d0e',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '10px',
+    fontSize: '11.5px',
+    fontWeight: 700,
+    cursor: 'pointer',
   },
   fileBtn: {
     width: '100%',
