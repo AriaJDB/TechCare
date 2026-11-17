@@ -24,7 +24,7 @@ export const hasApiEnv = [
   credenciales.tecnico.password,
 ].every((valor) => valor.length > 0 && !valor.includes('TU-PROYECTO') && !valor.includes('cambia-esta'));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export interface ApiResponse<T = any> {
   status: number;
   body: T;

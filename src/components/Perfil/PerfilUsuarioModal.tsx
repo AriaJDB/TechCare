@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   obtenerPerfilUsuario,
   actualizarPerfilUsuario,
@@ -30,18 +30,13 @@ export default function PerfilUsuarioModal({
   const [apellidos, setApellidos] = useState(inicial.apellidos);
   const [rol, setRol] = useState<RolUsuario>(inicial.rol);
   const [especialidad, setEspecialidad] = useState(inicial.especialidad);
-  const [directorio, setDirectorio] = useState<PerfilIngeniero[]>([]);
+  const [directorio, setDirectorio] = useState<PerfilIngeniero[]>(() => obtenerDirectorioIngenieros());
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
-  const [permisoNotif, setPermisoNotif] = useState<string>('default');
-
-  useEffect(() => {
-    setDirectorio(obtenerDirectorioIngenieros());
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermisoNotif(Notification.permission);
-    }
-  }, []);
+  const [permisoNotif, setPermisoNotif] = useState<string>(() =>
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
 
   const handleGuardarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();

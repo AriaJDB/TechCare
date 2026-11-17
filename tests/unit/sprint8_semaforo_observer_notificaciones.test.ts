@@ -118,3 +118,4 @@ describe('Sprint 8 · Programación Automática (HU7), Semáforo y Notificacione
     expect(resultado.metricasFiabilidad?.ultimoIngeniero).toBe('Ing. Cinthia López');
   });
 });
+

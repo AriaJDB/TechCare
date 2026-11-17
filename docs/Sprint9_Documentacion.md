@@ -60,3 +60,4 @@ Para garantizar la trazabilidad real del personal técnico que interviene cada a
 * **Suites ejecutadas:** 9 suites de pruebas unitarias y de integración (`npm run test:unit`).
 * **Total de pruebas:** **83 pruebas aprobadas (100% pass rate)**.
 * **Build de producción:** Compilación limpia mediante TypeScript y Vite (`npm run build`).
+

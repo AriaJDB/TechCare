@@ -169,3 +169,4 @@ export const ordenServicioBus = new OrdenServicioEventEmitter();
 ordenServicioBus.suscribir(new ProgramacionSemaforoObserver());
 ordenServicioBus.suscribir(new HistorialCausaRaizObserver());
 ordenServicioBus.suscribir(new NotificacionesVencimientoObserver());
+

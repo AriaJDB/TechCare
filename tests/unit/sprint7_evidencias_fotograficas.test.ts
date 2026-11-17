@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import {
   ETAPAS_CATALOGO,
   validarArchivoFoto,

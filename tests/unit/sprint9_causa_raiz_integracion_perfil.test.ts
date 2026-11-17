@@ -114,3 +114,4 @@ describe('Sprint 9 · Análisis de Causa Raíz, Fallas Recurrentes (HU9), Perfil
     );
   });
 });
+

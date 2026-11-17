@@ -70,3 +70,4 @@
 | **TC08** | HU7 / HU8 | Equipo a 10 días de su próximo mantenimiento | ✅ El equipo se marca en color **Amarillo** (`POR VENCER`) |
 | **TC09** | HU7 / HU8 | Equipo con mantenimiento vencido | ✅ El equipo se marca en color **Rojo** (`VENCIDO`) y dispara notificación al teléfono del último ingeniero |
 | **TC10** | General | Uso de la app con interrupción de red | ✅ Informa el estado y conserva los datos capturados sin pérdida de información |
+

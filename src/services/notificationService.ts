@@ -290,8 +290,8 @@ export async function dispararNotificacionVencimiento(
       if (Notification.permission === 'granted') {
         const notifOptions: any = {
           body: mensaje,
-          icon: '/favicon.svg',
-          badge: '/favicon.svg',
+          icon: '/icono_techcar.jpg',
+          badge: '/icono_techcar.jpg',
           tag: `techcare-rojo-${serie}-${Date.now()}`,
           renotify: true,
           requireInteraction: true,
@@ -377,3 +377,4 @@ export function limpiarNotificacionesDisparadas(): void {
     }
   }
 }
+

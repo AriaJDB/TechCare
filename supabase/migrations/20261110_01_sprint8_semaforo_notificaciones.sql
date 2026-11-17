@@ -60,3 +60,4 @@ BEGIN
   WHERE cerrada = true AND proxima_fecha_mtto IS NOT NULL;
 END;
 $$;
+

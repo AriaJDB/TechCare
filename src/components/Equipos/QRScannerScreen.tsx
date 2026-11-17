@@ -23,65 +23,6 @@ export default function QRScannerScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerContainerId = 'techcare-qr-reader';
 
-  // Iniciar la cámara al montar
-  useEffect(() => {
-    let isMounted = true;
-
-    async function startCamera() {
-      try {
-        setCameraError(null);
-        const scanner = new Html5Qrcode(scannerContainerId);
-        html5QrCodeRef.current = scanner;
-
-        // Configuración de escaneo
-        const qrConfig = {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1.0,
-        };
-
-        // Solicitar cámara trasera (environment) para smartphones
-        await scanner.start(
-          { facingMode: 'environment' },
-          qrConfig,
-          (decodedText) => {
-            if (isMounted) {
-              handleQRScanned(decodedText);
-            }
-          },
-          () => {
-            // Frame scan loop
-          }
-        );
-
-        if (isMounted) {
-          setCameraActive(true);
-        }
-      } catch (err: any) {
-        if (isMounted) {
-          console.warn('No se pudo iniciar la cámara automáticamente:', err);
-          setCameraActive(false);
-          let mensaje = 'No se pudo acceder a la cámara.';
-          if (err?.name === 'NotAllowedError') {
-            mensaje = 'Permiso de cámara denegado. Concede permisos a la aplicación o al navegador.';
-          } else if (err?.name === 'NotFoundError') {
-            mensaje = 'No se detectó ninguna cámara disponible en este dispositivo.';
-          } else if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
-            mensaje = 'Los navegadores móviles requieren HTTPS o localhost para encender la cámara web.';
-          }
-          setCameraError(mensaje);
-        }
-      }
-    }
-
-    startCamera();
-
-    return () => {
-      isMounted = false;
-      stopCamera();
-    };
-  }, []);
-
   const stopCamera = async () => {
     try {
       if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
@@ -139,6 +80,66 @@ export default function QRScannerScreen({
       setSearching(false);
     }
   };
+
+  // Iniciar la cámara al montar
+  useEffect(() => {
+    let isMounted = true;
+
+    async function startCamera() {
+      try {
+        setCameraError(null);
+        const scanner = new Html5Qrcode(scannerContainerId);
+        html5QrCodeRef.current = scanner;
+
+        // Configuración de escaneo
+        const qrConfig = {
+          fps: 10,
+          qrbox: { width: 220, height: 220 },
+          aspectRatio: 1.0,
+        };
+
+        // Solicitar cámara trasera (environment) para smartphones
+        await scanner.start(
+          { facingMode: 'environment' },
+          qrConfig,
+          (decodedText) => {
+            if (isMounted) {
+              handleQRScanned(decodedText);
+            }
+          },
+          () => {
+            // Frame scan loop
+          }
+        );
+
+        if (isMounted) {
+          setCameraActive(true);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.warn('No se pudo iniciar la cámara automáticamente:', err);
+          setCameraActive(false);
+          let mensaje = 'No se pudo acceder a la cámara.';
+          if (err?.name === 'NotAllowedError') {
+            mensaje = 'Permiso de cámara denegado. Concede permisos a la aplicación o al navegador.';
+          } else if (err?.name === 'NotFoundError') {
+            mensaje = 'No se detectó ninguna cámara disponible en este dispositivo.';
+          } else if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
+            mensaje = 'Los navegadores móviles requieren HTTPS o localhost para encender la cámara web.';
+          }
+          setCameraError(mensaje);
+        }
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      isMounted = false;
+      stopCamera();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -77,16 +77,17 @@ export default function FichaTecnicaModal({
 
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    cargarHistorial();
-  }, [equipo]);
-
   const cargarHistorial = async () => {
     setLoadingHistorial(true);
     const data = await getHistorialEquipo(equipo);
     setHistorial(data);
     setLoadingHistorial(false);
   };
+
+  useEffect(() => {
+    cargarHistorial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equipo]);
 
   const handleDescargarEtiqueta = () => {
     const svg = qrContainerRef.current?.querySelector('svg') || null;

@@ -43,6 +43,7 @@ export default function EvidenciaFotografica({
 
   useEffect(() => {
     cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idOrden]);
 
   const procesarArchivo = async (etapa: EtapaEvidencia, file: File | Blob) => {

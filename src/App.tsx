@@ -67,8 +67,9 @@ const LockIcon = ({ size = 18, color = '#475569' }: { size?: number; color?: str
 );
 
 export default function App() {
+  const initialEnrolled = getEnrolledUser();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => initialEnrolled?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nombre, setNombre] = useState('');
@@ -77,7 +78,7 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [session, setSession] = useState<any>(null);
-  const [biometricUser, setBiometricUser] = useState<any>(null);
+  const [biometricUser, setBiometricUser] = useState<any>(() => initialEnrolled);
   const [autoEnrollBiometric, setAutoEnrollBiometric] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -125,16 +126,6 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const enrolled = getEnrolledUser();
-    if (enrolled) {
-      setBiometricUser(enrolled);
-      if (enrolled.email && !email) {
-        setEmail(enrolled.email);
-      }
-    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -234,20 +225,17 @@ export default function App() {
       <div style={styles.innerScreen}>
         <div style={styles.card}>
           <div style={styles.iconContainer}>
-            <svg
-              width="36"
-              height="36"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
+            <img
+              src="/icono_techcar.jpg"
+              alt="TechCare Logo"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '20px',
+                display: 'block',
+              }}
+            />
           </div>
 
           <h2 style={styles.title}>{isLogin ? 'Bienvenido' : 'Crear Cuenta'}</h2>

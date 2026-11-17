@@ -60,3 +60,4 @@ AS $$
   GROUP BY subsistema_atendido
   HAVING COUNT(*) >= 2;
 $$;
+

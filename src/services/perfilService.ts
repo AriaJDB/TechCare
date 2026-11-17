@@ -290,3 +290,4 @@ export async function actualizarPerfilUsuario(
 
   return perfilActualizado;
 }
+

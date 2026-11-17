@@ -55,3 +55,4 @@ Conforme a la **Parte 4 de la Arquitectura de la Aplicación**, se implementó l
 
 * **TC08 (HU7/HU8):** Equipo a 10 días de su próximo mantenimiento se clasifica y muestra en color **amarillo** en el panel principal.
 * **TC09 (HU7/HU8):** Equipo con mantenimiento vencido se clasifica en color **rojo** y dispara notificación dirigida al último ingeniero responsable.
+

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 function getSupabase() {
   const g = globalThis as any;
   if (g.__techcare_supabase) return g.__techcare_supabase;

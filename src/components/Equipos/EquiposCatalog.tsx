@@ -199,6 +199,7 @@ export default function EquiposCatalog({
   useEffect(() => {
     fetchEquipos();
     inicializarPermisosNotificacion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const conteoSemaforo = {
@@ -224,11 +225,25 @@ export default function EquiposCatalog({
     <div style={styles.container}>
       {/* Encabezado Principal con Acceso a Perfil de Ingeniero */}
       <div style={styles.header}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={styles.title}>Panel TechCare</h2>
-          <p style={styles.subtitle}>
-            {perfilUsuario.nombreMostrar} · <span style={{ opacity: 0.8 }}>{session.user.email}</span>
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+          <img
+            src="/icono_techcar.jpg"
+            alt="TechCare"
+            style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '13px',
+              objectFit: 'cover',
+              flexShrink: 0,
+              boxShadow: '0 6px 14px rgba(15, 23, 42, 0.25)',
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={styles.title}>Panel TechCare</h2>
+            <p style={styles.subtitle}>
+              {perfilUsuario.nombreMostrar} · <span style={{ opacity: 0.8 }}>{session.user.email}</span>
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
