@@ -7,10 +7,6 @@ import {
   type PerfilIngeniero,
   type RolUsuario,
 } from '../../services/perfilService';
-import {
-  inicializarPermisosNotificacion,
-  dispararNotificacionVencimiento,
-} from '../../services/notificationService';
 
 interface PerfilUsuarioModalProps {
   session: any;
@@ -34,9 +30,6 @@ export default function PerfilUsuarioModal({
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
-  const [permisoNotif, setPermisoNotif] = useState<string>(() =>
-    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
-  );
 
   const handleGuardarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,19 +78,6 @@ export default function PerfilUsuarioModal({
     setNuevoIngNombre('');
     setMensajeExito(`✓ ${formateado} agregado a la plantilla de asignación.`);
     setTimeout(() => setMensajeExito(''), 3000);
-  };
-
-  const handleProbarNotificacion = async () => {
-    const perm = await inicializarPermisosNotificacion();
-    setPermisoNotif(perm);
-    await dispararNotificacionVencimiento({
-      idEquipo: 'demo-perfil',
-      numeroSerie: 'SN-DEMO-01',
-      tipoDispositivo: 'Laptop',
-      ultimoIngeniero: nombreMostrar.trim() || inicial.nombreMostrar,
-      proximaFecha: new Date().toISOString().substring(0, 10),
-      estadoSemaforo: 'rojo',
-    });
   };
 
   return (
@@ -187,7 +167,7 @@ export default function PerfilUsuarioModal({
 
             <div style={styles.row2}>
               <div style={{ flex: 1 }}>
-                <label style={styles.label}>Rol del Usuario (HU1):</label>
+                <label style={styles.label}>Rol del Usuario:</label>
                 <select
                   value={rol}
                   onChange={(e) => setRol(e.target.value as RolUsuario)}
@@ -283,31 +263,6 @@ export default function PerfilUsuarioModal({
                 + Agregar
               </button>
             </div>
-          </div>
-
-          {/* Configuración de Notificaciones de Vencimiento en Teléfono */}
-          <div style={styles.sectionCard}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={styles.cardHeading}>Notificaciones en Teléfono (HU8)</h3>
-              <span
-                style={{
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  background: permisoNotif === 'granted' ? '#dcfce7' : '#fef9c3',
-                  color: permisoNotif === 'granted' ? '#065f46' : '#854d0e',
-                }}
-              >
-                {permisoNotif === 'granted' ? '✓ Activas' : 'Permiso requerido'}
-              </span>
-            </div>
-            <p style={styles.cardSub}>
-              Cuando el semáforo de un equipo cambie a ROJO, el sistema envía una alerta directa a la pantalla de bloqueo para el último ingeniero que atendió el equipo.
-            </p>
-            <button type="button" onClick={handleProbarNotificacion} style={styles.testNotifBtn}>
-              🔔 Activar y Probar Notificación en Pantalla de Bloqueo
-            </button>
           </div>
         </div>
       </div>

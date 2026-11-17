@@ -361,7 +361,7 @@ export default function FichaTecnicaModal({
                 </div>
 
                 <div style={{ ...styles.semaforoControlRow, marginTop: '8px' }}>
-                  <span style={styles.controlLabel}>Ciclo programado (HU7):</span>
+                  <span style={styles.controlLabel}>Ciclo programado:</span>
                   <div style={styles.semaforoSwitchGroup}>
                     {([3, 6, 12] as CicloMeses[]).map((c) => (
                       <button
@@ -533,7 +533,7 @@ export default function FichaTecnicaModal({
                       </select>
                     </div>
                     <div>
-                      <label style={styles.label}>Ciclo Próximo Mant. (HU7)</label>
+                      <label style={styles.label}>Ciclo Próximo Mant.</label>
                       <select
                         value={cicloForm}
                         onChange={(e) => setCicloForm(Number(e.target.value) as CicloMeses)}
@@ -584,7 +584,7 @@ export default function FichaTecnicaModal({
                   </div>
 
                   <div>
-                    <label style={styles.label}>Causa Raíz Identificada (HU9)</label>
+                    <label style={styles.label}>Causa Raíz Identificada</label>
                     <input
                       type="text"
                       value={causaRaiz}

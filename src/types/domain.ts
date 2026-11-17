@@ -41,3 +41,4 @@ export interface TechCareNativeBridge {
   requestNotificationPermission?: () => void;
   sendMaintenanceNotification?: (title: string, body: string, serial: string) => boolean;
 }
+

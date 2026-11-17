@@ -107,7 +107,7 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
             <span style={{ fontSize: '22px' }}>🔒</span>
             <div>
               <h3 style={styles.title}>Cierre de Orden de Servicio</h3>
-              <p style={styles.subtitle}>Programación (HU7), Semáforo (HU8) y Causa Raíz (HU9)</p>
+              <p style={styles.subtitle}>Programación, Semáforo y Dictamen Técnico</p>
             </div>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">
@@ -115,14 +115,14 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
           </button>
         </div>
 
-        {/* REGLA TC06 / HU4/HU5: Si el checklist está incompleto, bloquear el cierre */}
+        {/* Si el checklist está incompleto, bloquear el cierre */}
         {!isCompleto ? (
           <div style={styles.blockedBody}>
             <div style={styles.errorAlert}>
               <span style={{ fontSize: '20px' }}>⛔</span>
               <div>
                 <strong style={{ fontSize: '13px', display: 'block' }}>
-                  Cierre de orden bloqueado (TC06)
+                  Cierre de orden bloqueado
                 </strong>
                 <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>
                   Para garantizar la calidad del servicio, el sistema no permite cerrar la
@@ -176,7 +176,7 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
 
             <div style={styles.fieldGroup}>
               <label style={styles.label}>
-                Ciclo para próximo mantenimiento (HU7) — Próxima fecha: {proximaCalculada}
+                Ciclo para próximo mantenimiento — Próxima fecha: {proximaCalculada}
               </label>
               <div style={styles.cycleGrid}>
                 {([3, 6, 12] as CicloMeses[]).map((c) => (
@@ -252,7 +252,7 @@ export const CierreOrdenModal: React.FC<CierreOrdenModalProps> = ({
             </div>
 
             <div>
-              <label style={styles.label}>Causa Raíz Identificada (HU9):</label>
+              <label style={styles.label}>Causa Raíz Identificada:</label>
               <input
                 type="text"
                 value={causaRaiz}

@@ -100,7 +100,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <div style={styles.headerInfo}>
           <h2 style={styles.headerTitle}>Checklist de Servicio</h2>
           <span style={styles.orderBadge}>
-            Sprint 7 · {isChecklistCompleto ? '100% Completo' : `${progreso.porcentaje}%`}
+            {isChecklistCompleto ? '100% Completo' : `${progreso.porcentaje}%`}
           </span>
         </div>
       </div>

@@ -64,7 +64,7 @@ export const TemperaturaModal: React.FC<TemperaturaModalProps> = ({
             <span style={{ fontSize: '24px' }}>🌡️</span>
             <div>
               <h3 style={styles.title}>Medición de Temperaturas</h3>
-              <p style={styles.subtitle}>Sprint 6 · Tarea 2 (HU5 - Pre vs Post Servicio)</p>
+              <p style={styles.subtitle}>Comparativa térmica Pre vs Post Servicio</p>
             </div>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">✕</button>
