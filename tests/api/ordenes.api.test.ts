@@ -111,11 +111,7 @@ describeApi('API REST · Órdenes de servicio y checklist (HU4, HU5)', () => {
 
   //#region CP-11
   it('CP-11: un técnico NO puede modificar ítems de otra orden (RLS)', async () => {
-    // Arrange: Creamos un ítem o usamos una orden con id_tecnico distinto
-    const rutaItem = `checklist_item?id_item=eq.${idItemVentiladores}`;
-
-    // Act: Intentamos modificar usando un token ajeno o modificando id_tecnico
-    // Si admin tiene otra orden, probamos que el técnico no pueda editarla
+    // Arrange & Act: Si admin tiene otra orden, probamos que el técnico no pueda editarla
     const ordenAdmin = await rest('orden_servicio', admin.token, {
       method: 'POST',
       body: JSON.stringify({

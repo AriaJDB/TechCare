@@ -11,7 +11,7 @@ interface QRScannerScreenProps {
 export default function QRScannerScreen({
   onBack,
   onEquipoEncontrado,
-  equiposDisponibles = []
+  equiposDisponibles = [],
 }: QRScannerScreenProps) {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -22,6 +22,64 @@ export default function QRScannerScreen({
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scannerContainerId = 'techcare-qr-reader';
+
+  const stopCamera = async () => {
+    try {
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        await html5QrCodeRef.current.stop();
+        html5QrCodeRef.current.clear();
+      }
+    } catch (err) {
+      console.warn('Error al detener cámara:', err);
+    }
+  };
+
+  const handleQRScanned = async (codigo: string) => {
+    const cleanCode = codigo.trim();
+    if (!cleanCode || searching) return;
+
+    setSearching(true);
+    setNotFoundCode(null);
+
+    try {
+      // 1. Buscar en lista precargada si existe
+      if (equiposDisponibles.length > 0) {
+        const localMatch = equiposDisponibles.find(
+          (e) =>
+            e.codigo_qr === cleanCode ||
+            e.numero_serie?.toLowerCase() === cleanCode.toLowerCase()
+        );
+        if (localMatch) {
+          await stopCamera();
+          onEquipoEncontrado(localMatch);
+          setSearching(false);
+          return;
+        }
+      }
+
+      // 2. Consultar en Supabase
+      const { data, error } = await supabase
+        .from('equipo')
+        .select('*')
+        .or(`codigo_qr.eq."${cleanCode}",numero_serie.ilike."${cleanCode}"`)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error buscando equipo en Supabase:', error);
+        setNotFoundCode(cleanCode);
+      } else if (data) {
+        await stopCamera();
+        onEquipoEncontrado(data);
+      } else {
+        setNotFoundCode(cleanCode);
+      }
+    } catch (err) {
+      console.error('Error inesperado buscando equipo:', err);
+      setNotFoundCode(cleanCode);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   // Iniciar la cámara al montar
   useEffect(() => {
@@ -37,7 +95,7 @@ export default function QRScannerScreen({
         const qrConfig = {
           fps: 10,
           qrbox: { width: 220, height: 220 },
-          aspectRatio: 1.0
+          aspectRatio: 1.0,
         };
 
         // Solicitar cámara trasera (environment) para smartphones
@@ -50,7 +108,7 @@ export default function QRScannerScreen({
             }
           },
           () => {
-            // Error de frame común durante escaneo continuo (no loguear para no saturar)
+            // Frame scan loop
           }
         );
 
@@ -80,114 +138,27 @@ export default function QRScannerScreen({
       isMounted = false;
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const stopCamera = async () => {
-    try {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        await html5QrCodeRef.current.stop();
-        html5QrCodeRef.current.clear();
-      }
-    } catch (err) {
-      console.warn('Error al detener cámara:', err);
-    }
-  };
-
-  const handleQRScanned = async (codigo: string) => {
-    const cleanCode = codigo.trim();
-    if (!cleanCode || searching) return;
+  const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     setSearching(true);
     setNotFoundCode(null);
 
-    // Pausar escaneo mientras se procesa
     try {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.pause();
+      let scanner = html5QrCodeRef.current;
+      if (!scanner) {
+        scanner = new Html5Qrcode(scannerContainerId);
+        html5QrCodeRef.current = scanner;
       }
-    } catch {
-      // Ignorar si no se pudo pausar
-    }
-
-    // 1. Buscar en Supabase en tabla equipo
-    let equipoEncontrado: any = null;
-
-    try {
-      const { data, error } = await supabase
-        .from('equipo')
-        .select('*')
-        .or(`codigo_qr.eq.${cleanCode},numero_serie.eq.${cleanCode}`)
-        .limit(1);
-
-      if (!error && data && data.length > 0) {
-        equipoEncontrado = data[0];
-      }
-    } catch (e) {
-      console.warn('Error consultando Supabase:', e);
-    }
-
-    // 2. Si no se encontró en Supabase, verificar en equipos en memoria del catálogo
-    if (!equipoEncontrado && equiposDisponibles.length > 0) {
-      equipoEncontrado = equiposDisponibles.find(
-        (eq) => eq.codigo_qr === cleanCode || eq.numero_serie === cleanCode
-      );
-    }
-
-    setSearching(false);
-
-    if (equipoEncontrado) {
-      // TC04: Escanear un código QR válido -> Se muestra la ficha técnica y el historial del equipo
-      await stopCamera();
-      onEquipoEncontrado(equipoEncontrado);
-    } else {
-      // TC05: Escanear un código QR no registrado -> El sistema indica que el equipo no fue encontrado
-      setNotFoundCode(cleanCode);
-      try {
-        if (html5QrCodeRef.current) {
-          html5QrCodeRef.current.resume();
-        }
-      } catch {
-        // Ignorar
-      }
-    }
-  };
-
-  // Simular escaneo válido (TC04)
-  const handleSimularValido = () => {
-    if (equiposDisponibles.length > 0) {
-      handleQRScanned(equiposDisponibles[0].codigo_qr || equiposDisponibles[0].numero_serie);
-    } else {
-      // Si aún no hay equipos registrados en base de datos, crear equipo de muestra
-      const mockEquipo = {
-        id: 'mock-laptop-01',
-        tipo_dispositivo: 'laptop',
-        numero_serie: 'SN-TECH-2026',
-        procesador: 'Intel Core i7-12700H',
-        ram: '16 GB DDR5',
-        almacenamiento: '1 TB NVMe SSD',
-        codigo_qr: 'TECHCARE-SN-TECH-2026'
-      };
-      stopCamera();
-      onEquipoEncontrado(mockEquipo);
-    }
-  };
-
-  // Simular QR no reconocido (TC05)
-  const handleSimularInvalido = () => {
-    handleQRScanned('TECHCARE-INEXISTENTE-99999');
-  };
-
-  // Escanear archivo de imagen
-  const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !html5QrCodeRef.current) return;
-
-    try {
-      setSearching(true);
-      const result = await html5QrCodeRef.current.scanFile(file, true);
-      handleQRScanned(result);
-    } catch {
-      alert('No se detectó un código QR legible en la imagen seleccionada.');
+      const decodedText = await scanner.scanFile(file, true);
+      handleQRScanned(decodedText);
+    } catch (err) {
+      console.warn('No se detectó QR en el archivo cargado:', err);
+      alert('No se pudo leer ningún código QR en la imagen seleccionada. Intenta con una imagen más nítida.');
     } finally {
       setSearching(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -196,7 +167,7 @@ export default function QRScannerScreen({
 
   return (
     <div style={styles.container}>
-      {/* Botón superior de retroceso */}
+      {/* Botón superior Volver */}
       <div style={styles.topBar}>
         <button onClick={onBack} style={styles.backBtn}>
           ← Regresar al Catálogo
@@ -207,75 +178,80 @@ export default function QRScannerScreen({
         <h2 style={styles.title}>Escanear equipo</h2>
         <p style={styles.subtitle}>Apunta la cámara al código QR del equipo</p>
 
-        {/* Alerta TC05: Código QR no registrado */}
+        {/* Alerta de no encontrado */}
         {notFoundCode && (
           <div style={styles.notFoundAlert}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '18px' }}>⚠️</span>
-              <strong style={{ fontSize: '13px' }}>Equipo no encontrado (TC05)</strong>
+              <span style={{ fontSize: '16px' }}>⚠️</span>
+              <strong style={{ fontSize: '13px' }}>Equipo no encontrado</strong>
             </div>
-            <p style={{ margin: '4px 0', fontSize: '12px', lineHeight: '1.4' }}>
-              El código QR <code>{notFoundCode}</code> no corresponde a ningún equipo registrado en el sistema.
+            <p style={{ margin: '0 0 8px 0', fontSize: '12px' }}>
+              No se localizó ningún equipo con el código: <code>{notFoundCode}</code>
             </p>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button
-                onClick={() => setNotFoundCode(null)}
-                style={styles.alertActionBtn}
-              >
-                Volver a escanear
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setNotFoundCode(null)} style={styles.alertActionBtn}>
+                Escanear de nuevo
               </button>
-              <button
-                onClick={onBack}
-                style={{ ...styles.alertActionBtn, backgroundColor: 'rgba(59, 130, 246, 0.3)' }}
-              >
-                Ir a registrar equipo
+              <button onClick={onBack} style={styles.alertActionSecondaryBtn}>
+                Ver catálogo
               </button>
             </div>
           </div>
         )}
 
-        {/* Visor de cámara / Escáner QR */}
+        {/* Visor de cámara / Escáner */}
         <div style={styles.viewfinderWrapper}>
-          <div id={scannerContainerId} style={styles.cameraStream} />
+          <div
+            id={scannerContainerId}
+            style={{
+              width: '100%',
+              height: '100%',
+              overflow: 'hidden',
+              display: cameraActive ? 'block' : 'none',
+            }}
+          />
 
-          {/* Marco decorativo con esquinas como el mockup */}
+          {!cameraActive && (
+            <div style={styles.placeholderIcon}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <p style={{ fontSize: '12px', color: '#2563eb', fontWeight: 700, marginTop: '8px', textAlign: 'center' }}>
+                {searching ? 'Analizando código...' : 'Iniciando cámara...'}
+              </p>
+            </div>
+          )}
+
+          {/* Guías visuales de esquinas */}
           <div style={styles.frameCorners}>
             <div style={{ ...styles.corner, ...styles.cornerTL }} />
             <div style={{ ...styles.corner, ...styles.cornerTR }} />
             <div style={{ ...styles.corner, ...styles.cornerBL }} />
             <div style={{ ...styles.corner, ...styles.cornerBR }} />
-            
-            {/* Ícono de QR en el centro si la cámara aún no enciende */}
-            {!cameraActive && (
-              <div style={styles.placeholderIcon}>
-                <span style={{ fontSize: '48px', opacity: 0.6 }}>📷</span>
-                <p style={{ fontSize: '11px', color: '#93c5fd', marginTop: '6px', textAlign: 'center' }}>
-                  {searching ? 'Analizando código...' : 'Iniciando cámara...'}
-                </p>
-              </div>
-            )}
-
-            {/* Línea animada de escáner */}
-            {cameraActive && !searching && <div style={styles.scanLine} />}
           </div>
+
+          {/* Línea de escaneo animada */}
+          {cameraActive && !searching && <div style={styles.scanLine} />}
         </div>
 
         {searching && (
-          <p style={{ color: '#60a5fa', fontSize: '12px', textAlign: 'center', margin: '8px 0' }}>
+          <p style={{ color: '#2563eb', fontSize: '12.5px', fontWeight: 700, textAlign: 'center', margin: '8px 0' }}>
             Buscando ficha técnica e historial...
           </p>
         )}
 
+        {/* Mensaje si la cámara falló */}
         {cameraError && (
           <div style={styles.cameraErrorBox}>
-            <p style={{ margin: '0 0 6px 0', fontSize: '12px' }}>{cameraError}</p>
-            <p style={{ margin: 0, fontSize: '10px', color: '#cbd5e1' }}>
-              Puedes utilizar los botones de simulación abajo o subir una imagen de la etiqueta QR generada.
+            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 700 }}>{cameraError}</p>
+            <p style={{ margin: 0, fontSize: '11px', color: '#854d0e' }}>
+              Puedes cargar una foto de la etiqueta QR o escribir el número de serie abajo.
             </p>
           </div>
         )}
 
-        {/* Input oculto para subir archivo de imagen */}
+        {/* Cargar imagen de archivo */}
         <input
           ref={fileInputRef}
           type="file"
@@ -283,33 +259,11 @@ export default function QRScannerScreen({
           style={{ display: 'none' }}
           onChange={handleFileScan}
         />
-
-        {/* Botón para escanear desde imagen */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          style={styles.fileBtn}
-        >
-          📁 Cargar foto / imagen de QR
+        <button onClick={() => fileInputRef.current?.click()} style={styles.fileBtn}>
+          Cargar foto / imagen de QR
         </button>
 
-        {/* Botones de simulación solicitados en el Sprint (Mockup) */}
-        <div style={styles.actionsWrap}>
-          <button
-            onClick={handleSimularValido}
-            style={styles.simulateValidBtn}
-          >
-            Simular escaneo válido
-          </button>
-          
-          <button
-            onClick={handleSimularInvalido}
-            style={styles.simulateInvalidBtn}
-          >
-            Simular QR no reconocido
-          </button>
-        </div>
-
-        {/* Búsqueda manual por texto / SN */}
+        {/* Entrada manual de número de serie o código */}
         <div style={styles.manualWrap}>
           <input
             type="text"
@@ -340,231 +294,208 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: '10px 0'
+    padding: '6px 0 24px 0',
   },
   topBar: {
     width: '100%',
-    maxWidth: '380px',
-    marginBottom: '10px',
+    maxWidth: '400px',
+    marginBottom: '12px',
     display: 'flex',
-    justifyContent: 'flex-start'
+    justifyContent: 'flex-start',
   },
   backBtn: {
-    background: 'rgba(255, 255, 255, 0.1)',
-    color: '#93c5fd',
-    border: '1px solid rgba(96, 165, 250, 0.3)',
-    borderRadius: '8px',
-    padding: '6px 14px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer'
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#2563eb',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    borderRadius: '16px',
+    padding: '8px 16px',
+    fontSize: '12.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '6px 6px 14px rgba(148, 166, 212, 0.4), inset 0 2px 3px #ffffff',
   },
   scannerCard: {
     width: '100%',
-    maxWidth: '380px',
-    background: 'rgba(11, 18, 32, 0.7)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderRadius: '28px',
-    padding: '24px 20px',
-    border: '1.5px solid rgba(96, 165, 250, 0.35)',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
-    color: '#ffffff',
+    maxWidth: '400px',
+    background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
+    borderRadius: '34px',
+    padding: '26px 22px',
+    border: '1.5px solid rgba(255, 255, 255, 0.9)',
+    boxShadow:
+      '18px 22px 42px rgba(142, 162, 210, 0.48), -10px -10px 26px rgba(255, 255, 255, 0.95), inset 0 3px 5px #ffffff',
+    color: '#172554',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
   },
   title: {
     fontSize: '22px',
-    fontWeight: '700',
-    color: '#ffffff',
-    margin: '0 0 6px 0',
-    textAlign: 'center'
+    fontWeight: 800,
+    color: '#172554',
+    margin: '0 0 4px 0',
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: '12px',
-    color: '#93c5fd',
+    fontSize: '12.5px',
+    color: '#475569',
     textAlign: 'center',
-    margin: '0 0 20px 0',
-    fontWeight: '500'
+    margin: '0 0 18px 0',
+    fontWeight: 600,
   },
   notFoundAlert: {
     width: '100%',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    border: '1.5px solid #ef4444',
-    borderRadius: '12px',
-    padding: '12px',
-    color: '#fca5a5',
+    background: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
+    borderRadius: '18px',
+    padding: '14px',
+    color: '#be123c',
     marginBottom: '16px',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    boxShadow: '6px 6px 14px rgba(225, 150, 165, 0.35), inset 0 2px 3px #ffffff',
   },
   alertActionBtn: {
-    padding: '6px 12px',
-    backgroundColor: 'rgba(239, 68, 68, 0.4)',
-    border: '1px solid #ef4444',
+    padding: '7px 12px',
+    backgroundColor: '#e11d48',
+    border: 'none',
     color: '#ffffff',
-    borderRadius: '6px',
-    fontSize: '11px',
-    fontWeight: '600',
-    cursor: 'pointer'
+    borderRadius: '10px',
+    fontSize: '11.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  alertActionSecondaryBtn: {
+    padding: '7px 12px',
+    backgroundColor: '#ffffff',
+    border: 'none',
+    color: '#1e3a8a',
+    borderRadius: '10px',
+    fontSize: '11.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
   },
   viewfinderWrapper: {
     position: 'relative',
-    width: '260px',
-    height: '260px',
-    borderRadius: '24px',
+    width: '250px',
+    height: '250px',
+    borderRadius: '28px',
     overflow: 'hidden',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    border: '1px solid rgba(96, 165, 250, 0.25)',
+    backgroundColor: '#e3eaf8',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: '16px',
-    boxShadow: 'inset 0 0 30px rgba(0, 0, 0, 0.6)'
-  },
-  cameraStream: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
+    boxShadow: 'inset 6px 6px 14px rgba(155, 172, 212, 0.6), inset -6px -6px 14px rgba(255, 255, 255, 0.9)',
   },
   frameCorners: {
     position: 'absolute',
-    top: '20px',
-    left: '20px',
-    right: '20px',
-    bottom: '20px',
+    top: '22px',
+    left: '22px',
+    right: '22px',
+    bottom: '22px',
     pointerEvents: 'none',
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   corner: {
     position: 'absolute',
     width: '32px',
     height: '32px',
-    borderColor: '#60a5fa'
+    borderColor: '#2563eb',
   },
   cornerTL: {
     top: 0,
     left: 0,
-    borderTop: '3.5px solid #60a5fa',
-    borderLeft: '3.5px solid #60a5fa',
-    borderTopLeftRadius: '12px'
+    borderTop: '4px solid #2563eb',
+    borderLeft: '4px solid #2563eb',
+    borderTopLeftRadius: '14px',
   },
   cornerTR: {
     top: 0,
     right: 0,
-    borderTop: '3.5px solid #60a5fa',
-    borderRight: '3.5px solid #60a5fa',
-    borderTopRightRadius: '12px'
+    borderTop: '4px solid #2563eb',
+    borderRight: '4px solid #2563eb',
+    borderTopRightRadius: '14px',
   },
   cornerBL: {
     bottom: 0,
     left: 0,
-    borderBottom: '3.5px solid #60a5fa',
-    borderLeft: '3.5px solid #60a5fa',
-    borderBottomLeftRadius: '12px'
+    borderBottom: '4px solid #2563eb',
+    borderLeft: '4px solid #2563eb',
+    borderBottomLeftRadius: '14px',
   },
   cornerBR: {
     bottom: 0,
     right: 0,
-    borderBottom: '3.5px solid #60a5fa',
-    borderRight: '3.5px solid #60a5fa',
-    borderBottomRightRadius: '12px'
+    borderBottom: '4px solid #2563eb',
+    borderRight: '4px solid #2563eb',
+    borderBottomRightRadius: '14px',
   },
   placeholderIcon: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
   scanLine: {
     position: 'absolute',
     top: '10%',
     left: '5%',
     right: '5%',
-    height: '2px',
-    background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
-    boxShadow: '0 0 8px #38bdf8',
-    animation: 'scanAnimation 2.2s ease-in-out infinite'
+    height: '3px',
+    background: 'linear-gradient(90deg, transparent, #2563eb, transparent)',
+    boxShadow: '0 0 8px #3b82f6',
+    animation: 'scanAnimation 2.2s ease-in-out infinite',
   },
   cameraErrorBox: {
     width: '100%',
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    border: '1px solid rgba(234, 179, 8, 0.4)',
-    color: '#fef08a',
-    borderRadius: '10px',
-    padding: '10px',
+    background: 'linear-gradient(145deg, #fef9c3 0%, #fde68a 100%)',
+    color: '#854d0e',
+    borderRadius: '16px',
+    padding: '12px',
     marginBottom: '14px',
     textAlign: 'center',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
   },
   fileBtn: {
     width: '100%',
-    padding: '9px',
-    background: 'rgba(30, 58, 138, 0.35)',
-    border: '1px solid rgba(96, 165, 250, 0.3)',
-    borderRadius: '12px',
-    color: '#93c5fd',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    marginBottom: '12px'
-  },
-  actionsWrap: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    marginBottom: '16px'
-  },
-  simulateValidBtn: {
-    width: '100%',
-    padding: '13px',
-    background: 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)',
-    color: '#ffffff',
-    border: '1px solid rgba(255, 255, 255, 0.3)',
-    borderRadius: '14px',
-    fontSize: '14px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    boxShadow: '0 8px 18px -4px rgba(29, 78, 216, 0.7)'
-  },
-  simulateInvalidBtn: {
-    width: '100%',
     padding: '12px',
-    background: 'rgba(15, 23, 42, 0.8)',
-    color: '#cbd5e1',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    borderRadius: '14px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer'
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    borderRadius: '18px',
+    color: '#2563eb',
+    fontSize: '12.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    marginBottom: '12px',
+    boxShadow: '6px 6px 14px rgba(148, 166, 212, 0.4), inset 0 2px 3px #ffffff',
   },
   manualWrap: {
     width: '100%',
     display: 'flex',
-    gap: '8px'
+    gap: '8px',
   },
   manualInput: {
     flex: 1,
-    padding: '9px 12px',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    border: '1px solid rgba(96, 165, 250, 0.3)',
-    borderRadius: '10px',
-    color: '#ffffff',
-    fontSize: '12px',
-    outline: 'none'
+    padding: '11px 14px',
+    backgroundColor: '#e3eaf8',
+    border: 'none',
+    borderRadius: '16px',
+    color: '#172554',
+    fontSize: '12.5px',
+    fontWeight: 600,
+    outline: 'none',
+    boxShadow: 'inset 3px 3px 7px rgba(160, 176, 212, 0.55)',
   },
   manualBtn: {
-    padding: '9px 14px',
-    backgroundColor: '#2563eb',
+    padding: '11px 16px',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '16px',
     color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  }
+    fontSize: '12.5px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: '0 6px 12px rgba(37, 99, 235, 0.3)',
+  },
 };

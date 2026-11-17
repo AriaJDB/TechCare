@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { calcularProximaFecha, type CicloMeses } from '../utils/mantenimiento';
+import { ordenServicioBus } from './ordenServicioObserver';
 
 export type TareaChecklist =
   | 'limpieza'
@@ -551,9 +552,26 @@ export async function cerrarOrdenServicio(
     causaRaiz?: string;
     subsistemaAtendido?: string;
     tipoIntervencion?: 'preventiva' | 'correctiva';
+    idEquipo?: string;
+    numeroSerie?: string;
+    tipoDispositivo?: string;
+    codigoQr?: string;
+    tecnicoResponsable?: string;
   }
 ): Promise<OrdenServicio> {
-  const { items, cicloMeses = 6, diagnostico, causaRaiz, subsistemaAtendido, tipoIntervencion } = params;
+  const {
+    items,
+    cicloMeses = 6,
+    diagnostico,
+    causaRaiz,
+    subsistemaAtendido,
+    tipoIntervencion,
+    idEquipo,
+    numeroSerie,
+    tipoDispositivo,
+    codigoQr,
+    tecnicoResponsable,
+  } = params;
 
   // 1. Validar regla de negocio fundamental (TC06 / HU4/HU5)
   const pendientes = obtenerTareasPendientes(items);
@@ -599,5 +617,27 @@ export async function cerrarOrdenServicio(
     throw new Error(error?.message || 'Error al cerrar la orden de servicio.');
   }
 
-  return data as OrdenServicio;
+  const ordenCerrada = data as OrdenServicio;
+
+  // 4. Emitir evento ordenCerrada mediante el patrón Observer (Parte 4)
+  try {
+    await ordenServicioBus.emitirOrdenCerrada({
+      idOrden,
+      idEquipo: idEquipo || ordenCerrada.id_equipo || 'eq-general',
+      numeroSerie,
+      tipoDispositivo,
+      codigoQr,
+      fechaCierre: ahora,
+      cicloMeses,
+      tipoIntervencion: tipoIntervencion || 'preventiva',
+      subsistemaAtendido: subsistemaAtendido || 'General',
+      diagnostico: diagnostico || 'Mantenimiento integral completado con éxito.',
+      causaRaiz: causaRaiz || '',
+      tecnicoResponsable: tecnicoResponsable || 'Ing. Gabriel Flores',
+    });
+  } catch {
+    // No bloquear el cierre si un observador secundario falla
+  }
+
+  return ordenCerrada;
 }

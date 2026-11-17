@@ -6,6 +6,8 @@ import { PuertosModal } from './PuertosModal';
 import { TemperaturaModal } from './TemperaturaModal';
 import { SmartModal } from './SmartModal';
 import { CierreOrdenModal } from './CierreOrdenModal';
+import EvidenciaFotografica from './EvidenciaFotografica';
+import type { EvidenciaItem } from '../../services/evidenciasService';
 
 interface ChecklistScreenProps {
   idOrden: string;
@@ -53,11 +55,12 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
     recargar,
   } = useChecklist(idOrden);
 
-  const [activeTab, setActiveTab] = useState<'todas' | 'parte1' | 'parte2'>('todas');
+  const [activeTab, setActiveTab] = useState<'todas' | 'parte1' | 'parte2' | 'fotos'>('todas');
   const [activeModal, setActiveModal] = useState<
     'puertos' | 'temperatura' | 'smart' | 'cierre' | null
   >(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [evidencias, setEvidencias] = useState<EvidenciaItem[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -97,22 +100,31 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <div style={styles.headerInfo}>
           <h2 style={styles.headerTitle}>Checklist de Servicio</h2>
           <span style={styles.orderBadge}>
-            Sprint 6 · {isChecklistCompleto ? '100% Completo' : `${progreso.porcentaje}%`}
+            {isChecklistCompleto ? '100% Completo' : `${progreso.porcentaje}%`}
           </span>
         </div>
       </div>
 
-      {/* Tarjeta de Resumen del Activo */}
+      {/* Tarjeta de Equipo */}
       <div style={styles.equipmentCard}>
         <div style={styles.equipmentIcon}>
-          {equipo.tipo_dispositivo === 'laptop'
-            ? '💻'
-            : equipo.tipo_dispositivo === 'desktop'
-            ? '🖥️'
-            : '🗄️'}
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
         </div>
         <div style={styles.equipmentDetails}>
-          <span style={styles.equipmentSerial}>SN: {equipo.numero_serie}</span>
+          <span style={styles.equipmentSerial}>SN: {equipo.numero_serie || 'N/A'}</span>
           <span style={styles.equipmentSpecs}>
             {[equipo.procesador, equipo.ram, equipo.almacenamiento]
               .filter(Boolean)
@@ -126,9 +138,9 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <div style={styles.offlineBanner}>
           <span style={styles.bannerIcon}>📡</span>
           <div>
-            <strong style={styles.bannerTitle}>Sin conexión a Internet</strong>
+            <strong style={styles.bannerTitle}>Modo Local / Sin conexión</strong>
             <p style={styles.bannerText}>
-              Los cambios se guardan localmente y se sincronizarán al recuperar la red.
+              Los cambios y fotografías se guardan localmente y se sincronizarán al recuperar la red.
             </p>
           </div>
         </div>
@@ -158,7 +170,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         porcentaje={progreso.porcentaje}
       />
 
-      {/* Pestañas de Navegación por Parte */}
+      {/* Pestañas de Navegación */}
       <div style={styles.tabsNav}>
         <button
           type="button"
@@ -178,7 +190,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
             ...(activeTab === 'parte1' ? styles.tabBtnActive : {}),
           }}
         >
-          Parte 1: Física ({progresoParte1.porcentaje}%)
+          Física ({progresoParte1.porcentaje}%)
         </button>
         <button
           type="button"
@@ -188,60 +200,81 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
             ...(activeTab === 'parte2' ? styles.tabBtnActive : {}),
           }}
         >
-          Parte 2: Lógica ({progresoParte2.porcentaje}%)
+          Lógica ({progresoParte2.porcentaje}%)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('fotos')}
+          style={{
+            ...styles.tabBtn,
+            ...(activeTab === 'fotos' ? styles.tabBtnActive : {}),
+          }}
+        >
+          Fotos ({evidencias.length}/3)
         </button>
       </div>
 
-      {/* Lista de Tareas */}
-      <div style={styles.tasksList}>
-        {loading && items.length === 0 ? (
-          <div style={styles.loadingState}>
-            <div style={styles.spinnerLarge} />
-            <p style={styles.loadingText}>Cargando verificaciones técnicas...</p>
-          </div>
-        ) : itemsAMostrar.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p style={styles.emptyText}>
-              No se encontraron verificaciones asignadas para este filtro.
-            </p>
-            <button onClick={recargar} style={styles.secondaryBtn}>
-              Actualizar
-            </button>
-          </div>
-        ) : (
-          itemsAMostrar.map((item) => {
-            let detailsSummary: string | undefined;
-            let onOpenDetails: (() => void) | undefined;
+      {/* Lista de Tareas (oculta si se selecciona la pestaña exclusiva de fotos) */}
+      {activeTab !== 'fotos' && (
+        <div style={styles.tasksList}>
+          {loading && items.length === 0 ? (
+            <div style={styles.loadingState}>
+              <div style={styles.spinnerLarge} />
+              <p style={styles.loadingText}>Cargando verificaciones técnicas...</p>
+            </div>
+          ) : itemsAMostrar.length === 0 ? (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>
+                No se encontraron verificaciones asignadas para este filtro.
+              </p>
+              <button onClick={recargar} style={styles.secondaryBtn}>
+                Actualizar
+              </button>
+            </div>
+          ) : (
+            itemsAMostrar.map((item) => {
+              let detailsSummary: string | undefined;
+              let onOpenDetails: (() => void) | undefined;
 
-            if (item.tarea === 'puertos') {
-              onOpenDetails = () => setActiveModal('puertos');
-              detailsSummary = `USB: ${puertosData.usb_a.toUpperCase()}, HDMI: ${puertosData.hdmi.toUpperCase()}, Audio: ${puertosData.audio.toUpperCase()}`;
-            } else if (item.tarea === 'temperatura') {
-              onOpenDetails = () => setActiveModal('temperatura');
-              if (temperaturaData) {
-                detailsSummary = `Pre: ${temperaturaData.tempCpuPre}°C ➔ Post: ${temperaturaData.tempCpuPost}°C (Δ ${temperaturaData.deltaCpu}°C)`;
+              if (item.tarea === 'puertos') {
+                onOpenDetails = () => setActiveModal('puertos');
+                detailsSummary = `USB: ${puertosData.usb_a.toUpperCase()}, HDMI: ${puertosData.hdmi.toUpperCase()}, Audio: ${puertosData.audio.toUpperCase()}`;
+              } else if (item.tarea === 'temperatura') {
+                onOpenDetails = () => setActiveModal('temperatura');
+                if (temperaturaData) {
+                  detailsSummary = `Pre: ${temperaturaData.tempCpuPre}°C ➔ Post: ${temperaturaData.tempCpuPost}°C (Δ ${temperaturaData.deltaCpu}°C)`;
+                }
+              } else if (item.tarea === 'smart') {
+                onOpenDetails = () => setActiveModal('smart');
+                if (smartData) {
+                  detailsSummary = `Salud: ${smartData.saludPorcentaje}% · ${smartData.horasEncendido}h · ${smartData.estado.toUpperCase()}`;
+                }
               }
-            } else if (item.tarea === 'smart') {
-              onOpenDetails = () => setActiveModal('smart');
-              if (smartData) {
-                detailsSummary = `Salud: ${smartData.saludPorcentaje}% · ${smartData.horasEncendido}h · ${smartData.estado.toUpperCase()}`;
-              }
-            }
 
-            return (
-              <ChecklistItemRow
-                key={item.id_item}
-                item={item}
-                isGuardando={!!guardandoMap[item.id_item]}
-                hasError={!!errorMap[item.id_item]}
-                onToggle={toggleTarea}
-                onOpenDetails={onOpenDetails}
-                detailsSummary={detailsSummary}
-              />
-            );
-          })
-        )}
-      </div>
+              return (
+                <ChecklistItemRow
+                  key={item.id_item}
+                  item={item}
+                  isGuardando={!!guardandoMap[item.id_item]}
+                  hasError={!!errorMap[item.id_item]}
+                  onToggle={toggleTarea}
+                  onOpenDetails={onOpenDetails}
+                  detailsSummary={detailsSummary}
+                />
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* Bitácora de Evidencias Fotográficas (visible en tab 'todas' o 'fotos') */}
+      {(activeTab === 'todas' || activeTab === 'fotos') && (
+        <EvidenciaFotografica
+          idOrden={idOrden}
+          idEquipo={equipo.id}
+          onEvidenciasChange={(evs) => setEvidencias(evs)}
+        />
+      )}
 
       {/* Banners de finalización */}
       {parte1Completa && !isChecklistCompleto && (
@@ -257,7 +290,13 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
       )}
 
       {isChecklistCompleto && (
-        <div style={{ ...styles.completionBanner, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.15)' }}>
+        <div
+          style={{
+            ...styles.completionBanner,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          }}
+        >
           <span style={{ fontSize: '20px' }}>🏆</span>
           <div>
             <strong style={{ ...styles.completionTitle, color: '#a7f3d0' }}>
@@ -272,16 +311,17 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
 
       {/* Botonera de Acción */}
       <div style={styles.actionBar}>
-        {/* Botón de Cierre de Orden (TC06 / HU4/HU5 / HU7 / HU8) */}
         <button
           onClick={() => setActiveModal('cierre')}
           style={{
             ...styles.closeOrderBtn,
-            backgroundColor: isChecklistCompleto ? '#10b981' : '#334155',
-            color: isChecklistCompleto ? '#ffffff' : '#94a3b8',
+            background: isChecklistCompleto
+              ? 'linear-gradient(145deg, #34d399 0%, #10b981 100%)'
+              : 'linear-gradient(145deg, #ffffff 0%, #e2e8f0 100%)',
+            color: isChecklistCompleto ? '#ffffff' : '#475569',
           }}
         >
-          {isChecklistCompleto ? '🔒 Concluir y Cerrar Orden' : '🔒 Intentar Cerrar Orden'}
+          {isChecklistCompleto ? 'Concluir y Cerrar Orden' : 'Cerrar Orden de Servicio'}
         </button>
 
         <button
@@ -289,7 +329,7 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
           style={styles.primaryBtn}
           disabled={loading}
         >
-          💾 Guardar avance
+          Guardar avance
         </button>
 
         <button onClick={onBack} style={styles.secondaryBtn}>
@@ -326,6 +366,8 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <CierreOrdenModal
           items={items}
           isCompleto={isChecklistCompleto}
+          equipo={equipo}
+          idOrden={idOrden}
           onCerrarOrden={cerrarOrden}
           onClose={() => setActiveModal(null)}
           onSuccess={handleCierreExitoso}
@@ -335,16 +377,18 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
   );
 };
 
+export default ChecklistScreen;
+
 const styles: Record<string, React.CSSProperties> = {
   screenContainer: {
     display: 'flex',
     flexDirection: 'column',
     width: '100%',
-    maxWidth: '560px',
+    maxWidth: '520px',
     margin: '0 auto',
-    padding: '16px 16px 36px 16px',
+    padding: '18px 18px 32px 18px',
     boxSizing: 'border-box',
-    color: '#f8fafc',
+    color: '#172554',
     height: '100%',
     maxHeight: '100%',
     overflowY: 'auto',
@@ -353,17 +397,20 @@ const styles: Record<string, React.CSSProperties> = {
   header: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: '12px',
     marginBottom: '16px',
   },
   backBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#38bdf8',
-    fontSize: '14px',
-    fontWeight: 600,
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    color: '#2563eb',
+    fontSize: '13px',
+    fontWeight: 800,
     cursor: 'pointer',
-    padding: '8px 4px',
+    padding: '8px 14px',
+    borderRadius: '14px',
+    boxShadow: '4px 4px 10px rgba(148, 166, 212, 0.38), inset 0 2px 3px #ffffff',
   },
   headerInfo: {
     display: 'flex',
@@ -374,228 +421,232 @@ const styles: Record<string, React.CSSProperties> = {
   headerTitle: {
     margin: 0,
     fontSize: '18px',
-    fontWeight: 700,
-    color: '#ffffff',
+    fontWeight: 800,
+    color: '#172554',
   },
   orderBadge: {
-    fontSize: '11px',
-    fontWeight: 600,
-    color: '#38bdf8',
-    backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
-    padding: '2px 8px',
-    borderRadius: '6px',
+    background: '#dbeafe',
+    color: '#1e40af',
+    fontSize: '11.5px',
+    fontWeight: 800,
+    padding: '4px 10px',
+    borderRadius: '12px',
   },
   equipmentCard: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    padding: '12px 14px',
-    backgroundColor: '#0f172a',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
+    padding: '12px 16px',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '6px 6px 16px rgba(148, 166, 212, 0.3), inset 0 2px 3px #ffffff',
     marginBottom: '16px',
   },
   equipmentIcon: {
-    fontSize: '24px',
+    width: '42px',
+    height: '42px',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    boxShadow: '0 4px 10px rgba(37, 99, 235, 0.35)',
   },
   equipmentDetails: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '2px',
+    overflow: 'hidden',
   },
   equipmentSerial: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#f1f5f9',
+    fontSize: '13.5px',
+    fontWeight: 800,
+    color: '#172554',
   },
   equipmentSpecs: {
-    fontSize: '12px',
-    color: '#94a3b8',
+    fontSize: '11.5px',
+    color: '#64748b',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   offlineBanner: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '10px 14px',
-    backgroundColor: '#422006',
-    border: '1px solid #ca8a04',
-    borderRadius: '10px',
+    gap: '12px',
+    padding: '12px 16px',
+    borderRadius: '18px',
+    background: 'linear-gradient(145deg, #fef3c7 0%, #fde68a 100%)',
+    color: '#92400e',
     marginBottom: '14px',
-    color: '#fef08a',
+    boxShadow: '6px 6px 14px rgba(217, 119, 6, 0.25)',
   },
   bannerIcon: {
-    fontSize: '18px',
+    fontSize: '22px',
   },
   bannerTitle: {
-    fontSize: '13px',
     display: 'block',
+    fontSize: '13px',
+    fontWeight: 800,
   },
   bannerText: {
-    margin: 0,
-    fontSize: '11px',
-    color: '#fef9c3',
+    margin: '2px 0 0 0',
+    fontSize: '11.5px',
   },
   errorAlert: {
     display: 'flex',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '10px 14px',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid #ef4444',
-    borderRadius: '10px',
+    alignItems: 'center',
+    padding: '12px 16px',
+    borderRadius: '18px',
+    background: 'linear-gradient(145deg, #fee2e2 0%, #fecaca 100%)',
+    color: '#991b1b',
+    fontSize: '12px',
+    fontWeight: 700,
     marginBottom: '14px',
-    fontSize: '13px',
-    color: '#fca5a5',
   },
   retryBtn: {
-    background: '#ef4444',
-    color: '#fff',
+    background: '#ffffff',
     border: 'none',
-    padding: '4px 10px',
-    borderRadius: '6px',
-    fontSize: '12px',
+    color: '#991b1b',
+    padding: '6px 12px',
+    borderRadius: '10px',
+    fontSize: '11px',
+    fontWeight: 800,
     cursor: 'pointer',
-    fontWeight: 600,
+    boxShadow: '2px 2px 5px rgba(0,0,0,0.1)',
   },
   toast: {
-    position: 'sticky',
-    top: '12px',
-    zIndex: 100,
-    backgroundColor: '#10b981',
+    position: 'fixed',
+    bottom: '24px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'linear-gradient(145deg, #10b981 0%, #059669 100%)',
     color: '#ffffff',
-    padding: '10px 16px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
-    textAlign: 'center',
+    padding: '12px 24px',
+    borderRadius: '999px',
     fontSize: '13px',
-    fontWeight: 600,
-    marginBottom: '12px',
+    fontWeight: 800,
+    boxShadow: '0 10px 25px rgba(16, 185, 129, 0.4)',
+    zIndex: 9999,
   },
   tabsNav: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '6px',
     marginBottom: '14px',
-    backgroundColor: '#0f172a',
-    padding: '4px',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
   },
   tabBtn: {
-    flex: 1,
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    borderRadius: '14px',
     padding: '8px 4px',
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '11px',
-    fontWeight: 600,
+    color: '#64748b',
+    fontSize: '11.5px',
+    fontWeight: 700,
     cursor: 'pointer',
     textAlign: 'center',
+    boxShadow: '4px 4px 8px rgba(148, 166, 212, 0.25)',
   },
   tabBtnActive: {
-    backgroundColor: '#2563eb',
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
     color: '#ffffff',
+    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
   },
   tasksList: {
     display: 'flex',
     flexDirection: 'column',
+    gap: '10px',
     marginBottom: '16px',
   },
   loadingState: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: '30px',
-    gap: '12px',
+    padding: '36px 0',
   },
   spinnerLarge: {
-    width: '28px',
-    height: '28px',
-    border: '3px solid rgba(255, 255, 255, 0.2)',
-    borderTopColor: '#38bdf8',
+    width: '32px',
+    height: '32px',
+    border: '3px solid #cbd5e1',
+    borderTopColor: '#2563eb',
     borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
+    animation: 'spin 1s linear infinite',
   },
   loadingText: {
-    fontSize: '13px',
-    color: '#94a3b8',
-    margin: 0,
+    marginTop: '12px',
+    fontSize: '12.5px',
+    color: '#64748b',
   },
   emptyState: {
     textAlign: 'center',
-    padding: '24px',
-    backgroundColor: '#1e293b',
-    borderRadius: '10px',
+    padding: '28px',
+    background: '#e4ebf8',
+    borderRadius: '20px',
   },
   emptyText: {
-    fontSize: '13px',
-    color: '#94a3b8',
-    marginBottom: '12px',
+    fontSize: '12.5px',
+    color: '#64748b',
+    margin: '0 0 12px 0',
   },
   completionBanner: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '12px 14px',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    border: '1px solid #38bdf8',
-    borderRadius: '10px',
+    gap: '12px',
+    padding: '14px 16px',
+    borderRadius: '20px',
+    background: 'linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%)',
+    border: '1.5px solid #93c5fd',
     marginBottom: '16px',
-    color: '#7dd3fc',
+    boxShadow: '6px 6px 16px rgba(147, 197, 253, 0.35)',
   },
   completionTitle: {
-    fontSize: '13px',
     display: 'block',
-    color: '#bae6fd',
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#1e40af',
   },
   completionText: {
-    margin: 0,
-    fontSize: '12px',
-    color: '#e0f2fe',
+    margin: '2px 0 0 0',
+    fontSize: '11.5px',
+    color: '#1e3a8a',
   },
   actionBar: {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     marginTop: 'auto',
-    paddingTop: '16px',
-    paddingBottom: '24px',
   },
   closeOrderBtn: {
-    width: '100%',
-    minHeight: '48px',
+    padding: '14px',
+    borderRadius: '16px',
     border: 'none',
-    borderRadius: '10px',
     fontSize: '14px',
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: 'pointer',
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)',
-    transition: 'all 0.2s ease',
+    boxShadow: '0 8px 18px rgba(16, 185, 129, 0.35)',
   },
   primaryBtn: {
-    width: '100%',
-    minHeight: '44px',
-    backgroundColor: '#2563eb',
-    color: '#ffffff',
+    padding: '12px',
+    borderRadius: '14px',
     border: 'none',
-    borderRadius: '10px',
-    fontSize: '14px',
-    fontWeight: 600,
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 700,
     cursor: 'pointer',
-    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)',
+    boxShadow: '0 6px 14px rgba(37, 99, 235, 0.3)',
   },
   secondaryBtn: {
-    width: '100%',
-    minHeight: '40px',
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    border: '1px solid #334155',
-    borderRadius: '10px',
-    fontSize: '13px',
-    fontWeight: 500,
+    padding: '11px',
+    borderRadius: '14px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#475569',
+    fontSize: '12.5px',
+    fontWeight: 700,
     cursor: 'pointer',
+    boxShadow: '4px 4px 10px rgba(148, 166, 212, 0.3)',
   },
 };
-
-export default ChecklistScreen;

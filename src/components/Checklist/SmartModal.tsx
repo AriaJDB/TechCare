@@ -59,7 +59,7 @@ export const SmartModal: React.FC<SmartModalProps> = ({
             <span style={{ fontSize: '24px' }}>💾</span>
             <div>
               <h3 style={styles.title}>Diagnóstico Rápido S.M.A.R.T.</h3>
-              <p style={styles.subtitle}>Sprint 6 · Tarea 3 (HU5 - Salud del Disco/SSD)</p>
+              <p style={styles.subtitle}>Diagnóstico de salud del Disco / SSD</p>
             </div>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">✕</button>

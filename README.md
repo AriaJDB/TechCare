@@ -1,95 +1,53 @@
-# React + TypeScript + Vite
+# TechCare — Sistema Móvil de Gestión de Mantenimiento Preventivo y Trazabilidad Técnica
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación móvil y web progresiva desarrollada con **React + TypeScript + Vite**, empaquetada con **Capacitor** para Android y respaldada por **Supabase** (PostgreSQL, Auth y Storage).
 
-Currently, two official plugins are available:
+> **Estado del Proyecto:** MVP 100% completado e integrado (Sprints 1 al 10 — Historias de Usuario HU1 a HU9).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Módulos Implementados del MVP
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Módulo 1 · Autenticación, Biometría y Perfiles de Ingeniero (HU1):**
+   * Inicio de sesión y registro con Supabase Auth, inicio rápido con huella dactilar (`@capgo/capacitor-native-biometric`) y gestión de perfil de usuario/ingeniero con plantilla de asignación técnica.
+2. **Módulo 2 · Catálogo de Equipos y Generación de Etiquetas QR (HU2):**
+   * Registro y administración de activos (*Laptop*, *Desktop*, *Servidor*) con validación de número de serie único, generación automática de código QR y guardado de etiqueta física (600×360 px) en la galería del teléfono (álbum *TechCare*).
+3. **Módulo 3 · Escáner de Código QR Instantáneo (HU3):**
+   * Lectura mediante cámara trasera en tiempo real, análisis desde imagen de galería y consulta manual por código o serie.
+4. **Módulo 4 · Checklist Interactivo de Mantenimiento — Partes 1 y 2 (HU4 / HU5):**
+   * Verificaciones físicas (*limpieza*, *ventiladores*, *pasta térmica*) y lógicas (*inspección de puertos físicos*, *temperaturas pre/post con $\Delta^\circ\text{C}$*, *diagnóstico S.M.A.R.T.*), bloqueando el cierre si existen tareas obligatorias pendientes (TC06).
+5. **Módulo 5 · Bitácora Fotográfica de Evidencias (HU6):**
+   * Captura y compresión automática de hasta 3 fotografías por orden de servicio (`antes`, `proceso`, `despues`) vinculadas al historial del activo.
+6. **Módulo 6 · Programación, Semáforo de Estado, Notificaciones y Causa Raíz (HU7 / HU8 / HU9):**
+   * Cálculo automático de próxima fecha de mantenimiento (3, 6 o 12 meses), semáforo visual (*Verde*, *Amarillo*, *Rojo*), aplicación del **Patrón de Diseño Observer** al cierre de órdenes, notificaciones en pantalla de bloqueo dirigidas al último ingeniero responsable y detección automática de **Fallas Recurrentes por Subsistema** (`>= 2` intervenciones correctivas).
 
+---
 
-export default defineConfig([
-  # TechCare
+## Documentación por Sprint
 
-  Aplicación web con soporte para Android, creada para servir como punto de partida para el mantenimiento preventivo y la trazabilidad técnica. Actualmente permite crear una cuenta, iniciar sesión y cerrar sesión mediante Supabase; al entrar, muestra un panel principal básico.
+* [Sprint 7 · Bitácora Fotográfica de Evidencias (HU6)](./docs/Sprint7_Documentacion.md)
+* [Sprint 8 · Programación, Semáforo de Estado, Patrón Observer y Notificaciones (HU7 / HU8)](./docs/Sprint8_Documentacion.md)
+* [Sprint 9 · Historial de Fallas, Causa Raíz, Perfil de Ingenieros e Integración General (HU9)](./docs/Sprint9_Documentacion.md)
+* [Sprint 10 · Validación en Dispositivos, Manual de Usuario y Cierre del MVP](./docs/Sprint10_Manual_Usuario_y_Cierre.md)
 
-  > **Estado actual:** las funciones de gestión de equipos, órdenes de trabajo e historial de mantenimiento todavía no están implementadas.
+---
 
-  ## Requisitos
+## Requisitos e Instalación
 
-  - Git.
-  - Node.js **20.19 o posterior** (o **22.12 o posterior**) y npm. Puedes comprobar las versiones con `node -v` y `npm -v`.
-  - Un proyecto de [Supabase](https://supabase.com/) para habilitar el registro y el inicio de sesión.
-  - Para compilar o ejecutar la versión Android: Android Studio con el SDK de Android configurado.
-
-  ## 1. Descargar el proyecto
-
-  Abre una terminal y ejecuta:
-
-  ```bash
-  git clone https://github.com/AriaJDB/TechCare.git
-  cd TechCare
-  ```
-
-  ## 2. Instalar dependencias
-
-  Desde la carpeta del proyecto, instala las dependencias definidas por el proyecto:
-
-  ```bash
-  npm ci
-  ```
-
-  ## 3. Conectar Supabase
-
-  La aplicación necesita la URL y la clave pública (anon/publishable) de tu proyecto Supabase para iniciar. En el panel de Supabase, crea o abre un proyecto y copia estos datos desde **Project Settings → API**.
-
-  Crea un archivo llamado `.env` en la carpeta raíz del proyecto, junto a `package.json`, y agrega:
-
+* **Node.js** 20 LTS o superior y **npm**.
+* Proyecto en **Supabase** configurado en el archivo `.env`:
   ```env
   VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
-  VITE_SUPABASE_ANON_KEY=tu_clave_publica_de_supabase
+  VITE_SUPABASE_ANON_KEY=tu_clave_publica_anon
   ```
 
-  Reemplaza los valores de ejemplo por los de tu proyecto. No pongas espacios alrededor de `=`. Reinicia el servidor de desarrollo después de cambiar este archivo.
+### Comandos Disponibles
 
-  La clave `anon`/publicable se utiliza desde el navegador y no es una contraseña administrativa. **Nunca incluyas una clave `service_role` en la aplicación ni en el archivo `.env` del frontend.** Configura políticas de seguridad (RLS) en Supabase antes de guardar datos de usuarios.
-
-  ## 4. Ejecutar en desarrollo
-
-  ```bash
-  npm run dev
-  ```
-
-  Abre en el navegador la dirección que indique la terminal, normalmente <http://localhost:5173>. Desde la pantalla de TechCare puedes crear una cuenta o iniciar sesión. Si el registro requiere confirmación, revisa el correo electrónico asociado a la cuenta.
-
-  ## Comandos disponibles
-
-  | Comando | Para qué sirve |
-  | --- | --- |
-  | `npm run dev` | Inicia el servidor local de desarrollo. |
-  | `npm run build` | Comprueba TypeScript y genera la versión de producción en `dist/`. |
-  | `npm run preview` | Sirve localmente la versión compilada para revisarla. Ejecuta primero `npm run build`. |
-  | `npm run lint` | Revisa el código con ESLint. |
-
-  ## Crear la versión Android (opcional)
-
-  Una vez instalado Android Studio y configurado el SDK, genera la versión web y sincronízala con el proyecto Android:
-
-  ```bash
-  npm run build
-  npx cap sync android
-  npx cap open android
-  ```
-
-  Android Studio abrirá el proyecto para que puedas ejecutarlo en un emulador o en un dispositivo conectado. Si modificas la aplicación web, vuelve a ejecutar `npm run build` y `npx cap sync android` para actualizar los archivos que usa Android.
-
-  ## Tecnologías
-
-  - React y TypeScript para la interfaz.
-  - Vite para desarrollo y compilación web.
-  - Supabase Auth para el registro y el inicio/cierre de sesión.
-  - Capacitor para integrar la aplicación con Android.
+| Comando | Descripción |
+| :--- | :--- |
+| `npm install` | Instala las dependencias del proyecto. |
+| `npm run dev` | Inicia el servidor de desarrollo en `http://localhost:5173`. |
+| `npm run test:unit` | Ejecuta las 9 suites de pruebas unitarias y de integración con Jest (83 pruebas). |
+| `npm run build` | Compila TypeScript y genera el bundle de producción en `dist/`. |
+| `npx cap sync android` | Sincroniza el build web y plugins nativos con el proyecto Android. |
+| `npx cap open android` | Abre el proyecto nativo en Android Studio para generar el APK. |

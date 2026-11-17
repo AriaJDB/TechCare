@@ -80,7 +80,7 @@ export const PuertosModal: React.FC<PuertosModalProps> = ({
             <span style={{ fontSize: '24px' }}>🔌</span>
             <div>
               <h3 style={styles.title}>Inspección de Puertos Físicos</h3>
-              <p style={styles.subtitle}>Sprint 6 · Tarea 1 (HU5 - Módulo 4)</p>
+              <p style={styles.subtitle}>Verificación de conectividad física</p>
             </div>
           </div>
           <button onClick={onClose} style={styles.closeBtn} type="button">✕</button>
