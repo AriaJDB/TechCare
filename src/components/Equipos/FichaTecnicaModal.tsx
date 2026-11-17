@@ -1,10 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCode from 'react-qr-code';
-import { getHistorialEquipo, agregarMantenimiento, type MantenimientoRecord } from '../../utils/historialService';
+import {
+  getHistorialEquipo,
+  agregarMantenimiento,
+  calcularResumenSemaforoEquipo,
+  calcularMetricasFiabilidad,
+  establecerOverrideSemaforo,
+  guardarCicloEquipo,
+  type MantenimientoRecord,
+} from '../../utils/historialService';
 import { descargarEtiquetaQR } from '../../utils/qrExporter';
-import { calcularProximaFecha, calcularSemaforo, type CicloMeses, type EstadoSemaforo } from '../../utils/mantenimiento';
+import { calcularProximaFecha, type CicloMeses, type EstadoSemaforo } from '../../utils/mantenimiento';
 import { iniciarOrden } from '../../services/checklistService';
 import { ETAPAS_INFO, type EvidenciaItem } from '../../services/evidenciasService';
+import { obtenerDirectorioIngenieros, obtenerPerfilUsuario } from '../../services/perfilService';
+import { dispararNotificacionVencimiento } from '../../services/notificationService';
 import ChecklistScreen from '../Checklist/ChecklistScreen';
 
 interface FichaTecnicaProps {
@@ -12,31 +22,52 @@ interface FichaTecnicaProps {
   onClose: () => void;
   onEdit?: (equipo: any) => void;
   onDelete?: (id: string) => void;
+  onSemaforoChange?: () => void;
   currentUserEmail?: string;
 }
 
 type SeccionModal = 'ficha' | 'servicio' | 'historial';
+
+const CAUSAS_RAIZ_COMUNES = [
+  'Ventilador con rodamiento trabado',
+  'Thermal pad / pasta térmica degradada',
+  'Fuente de poder inestable',
+  'Sectores defectuosos en unidad SSD/HDD',
+  'Soldadura fría en puerto de placa base',
+];
 
 export default function FichaTecnicaModal({
   equipo,
   onClose,
   onEdit,
   onDelete,
+  onSemaforoChange,
   currentUserEmail,
 }: FichaTecnicaProps) {
+  const perfilActual = obtenerPerfilUsuario(
+    currentUserEmail ? { user: { email: currentUserEmail } } : undefined
+  );
+  const directorioIngenieros = obtenerDirectorioIngenieros();
+  const claveEquipo = equipo.id || equipo.id_equipo || equipo.numero_serie || equipo.codigo_qr || 'default';
+
   const [seccionActiva, setSeccionActiva] = useState<SeccionModal>('ficha');
   const [historial, setHistorial] = useState<MantenimientoRecord[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Formulario nuevo mantenimiento
+  // Formulario nuevo mantenimiento (HU7 / HU8 / HU9)
   const [fecha, setFecha] = useState(new Date().toISOString().substring(0, 10));
   const [subsistema, setSubsistema] = useState('Refrigeración / Térmico');
   const [diagnostico, setDiagnostico] = useState('');
-  const [tecnico, setTecnico] = useState(currentUserEmail || 'Técnico de Turno');
+  const [causaRaiz, setCausaRaiz] = useState('');
+  const [tecnico, setTecnico] = useState(perfilActual.nombreMostrar || 'Ing. Gabriel Flores');
   const [tipoIntervencion, setTipoIntervencion] = useState<'preventiva' | 'correctiva'>('preventiva');
+  const [cicloForm, setCicloForm] = useState<CicloMeses>(6);
   const [guardando, setGuardando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
+
+  // Estado reactivo para semáforo y ciclo
+  const [tickSemaforo, setTickSemaforo] = useState(0);
 
   // Checklist de servicio
   const [idOrdenActiva, setIdOrdenActiva] = useState<string | null>(null);
@@ -72,6 +103,41 @@ export default function FichaTecnicaModal({
     );
   };
 
+  // Cálculo de Semáforo, Próxima Fecha (HU7/HU8) y Fiabilidad/Fallas Recurrentes (HU9)
+  const resumenSemaforo = calcularResumenSemaforoEquipo(equipo, historial);
+  const metricas = calcularMetricasFiabilidad(historial);
+  const estadoSemaforo = resumenSemaforo.estadoSemaforo;
+  const fechaProximoMantenimiento = resumenSemaforo.proximaFecha;
+  const ultimoIngeniero = resumenSemaforo.ultimoIngeniero;
+
+  const handleCambiarCicloEquipo = (nuevoCiclo: CicloMeses) => {
+    guardarCicloEquipo(claveEquipo, nuevoCiclo);
+    setCicloForm(nuevoCiclo);
+    setTickSemaforo((t) => t + 1);
+    if (onSemaforoChange) onSemaforoChange();
+  };
+
+  const handleCambiarSemaforo = async (nuevoEstado: EstadoSemaforo) => {
+    establecerOverrideSemaforo(claveEquipo, nuevoEstado);
+    setTickSemaforo((t) => t + 1);
+    if (onSemaforoChange) onSemaforoChange();
+
+    if (nuevoEstado === 'rojo') {
+      await dispararNotificacionVencimiento({
+        idEquipo: claveEquipo,
+        numeroSerie: equipo.numero_serie || 'SN-EQUIPO',
+        tipoDispositivo: equipo.tipo_dispositivo || 'Equipo',
+        ultimoIngeniero,
+        proximaFecha: fechaProximoMantenimiento,
+        estadoSemaforo: 'rojo',
+      });
+      setMensajeExito(
+        `🔔 Notificación enviada al teléfono para ${ultimoIngeniero} (Equipo ${equipo.numero_serie} en ROJO).`
+      );
+      setTimeout(() => setMensajeExito(''), 4500);
+    }
+  };
+
   const handleGuardarMantenimiento = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!diagnostico.trim() || !tecnico.trim() || !subsistema.trim()) {
@@ -80,6 +146,13 @@ export default function FichaTecnicaModal({
     }
 
     setGuardando(true);
+    guardarCicloEquipo(claveEquipo, cicloForm);
+    // Al registrar un nuevo mantenimiento, restablecer semáforo automático
+    establecerOverrideSemaforo(claveEquipo, null);
+
+    const fechaBase = new Date(fecha + 'T12:00:00Z');
+    const proximaCalc = calcularProximaFecha(fechaBase, cicloForm).toISOString().substring(0, 10);
+
     await agregarMantenimiento({
       id_equipo: equipo.id || equipo.id_equipo,
       codigo_qr: equipo.codigo_qr,
@@ -87,35 +160,24 @@ export default function FichaTecnicaModal({
       fecha,
       subsistema,
       diagnostico,
+      causa_raiz: causaRaiz.trim() || 'Inspección y mantenimiento estándar completado',
       tecnico,
       tipo_intervencion: tipoIntervencion,
+      ciclo_meses: cicloForm,
+      proxima_fecha_mtto: proximaCalc,
       estado: 'completado',
     });
 
     setGuardando(false);
-    setMensajeExito('Mantenimiento registrado en el historial.');
+    setMensajeExito('Mantenimiento y causa raíz registrados en el historial.');
     setDiagnostico('');
+    setCausaRaiz('');
     setShowAddForm(false);
     await cargarHistorial();
+    if (onSemaforoChange) onSemaforoChange();
 
     setTimeout(() => setMensajeExito(''), 3500);
   };
-
-  // Cálculo de Semáforo de Estado según HU7 y HU8
-  let estadoSemaforo: EstadoSemaforo = 'verde';
-  let fechaProximoMantenimiento: string = '2027-03-18';
-
-  if (historial.length > 0) {
-    try {
-      const fechaUltimo = new Date(historial[0].fecha + 'T12:00:00Z');
-      const ciclo: CicloMeses = 6;
-      const proxima = calcularProximaFecha(fechaUltimo, ciclo);
-      estadoSemaforo = calcularSemaforo(proxima);
-      fechaProximoMantenimiento = proxima.toISOString().substring(0, 10);
-    } catch {
-      estadoSemaforo = 'verde';
-    }
-  }
 
   const semaforoConfig = {
     verde: {
@@ -138,7 +200,7 @@ export default function FichaTecnicaModal({
   const semaforoTexto = {
     verde: 'Al corriente (> 15 días restantes)',
     amarillo: 'Próximo a vencer (≤ 15 días)',
-    rojo: 'Mantenimiento Vencido',
+    rojo: `Mantenimiento Vencido · Notificado a ${ultimoIngeniero}`,
   }[estadoSemaforo];
 
   const handleIniciarServicio = async () => {
@@ -167,11 +229,13 @@ export default function FichaTecnicaModal({
             onBack={() => {
               setShowChecklist(false);
               cargarHistorial();
+              if (onSemaforoChange) onSemaforoChange();
             }}
             onOrdenCerrada={() => {
               setShowChecklist(false);
               setSeccionActiva('historial');
               cargarHistorial();
+              if (onSemaforoChange) onSemaforoChange();
             }}
           />
         </div>
@@ -180,7 +244,7 @@ export default function FichaTecnicaModal({
   }
 
   return (
-    <div style={styles.overlay}>
+    <div style={styles.overlay} data-semaforo-tick={tickSemaforo}>
       <div style={styles.modalCard}>
         {/* Cabecera del modal */}
         <div style={styles.header}>
@@ -198,7 +262,7 @@ export default function FichaTecnicaModal({
                   ? 'Ficha Técnica del Equipo'
                   : seccionActiva === 'servicio'
                   ? 'Servicio Técnico y Verificaciones'
-                  : 'Historial de Mantenimientos'}
+                  : 'Historial de Servicio y Fallas'}
               </h2>
               <p style={styles.subtitle}>Detalles de hardware y trazabilidad</p>
             </div>
@@ -213,6 +277,31 @@ export default function FichaTecnicaModal({
         {mensajeExito && <div style={styles.successBanner}>{mensajeExito}</div>}
 
         <div style={styles.scrollBody}>
+          {/* ALERTA DE FALLA RECURRENTE DETECTADA (HU9) */}
+          {metricas.alertasRecurrentes.length > 0 && (
+            <div style={styles.recurrentAlertCard}>
+              <div style={styles.recurrentAlertHeader}>
+                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <div>
+                  <strong style={styles.recurrentAlertTitle}>
+                    Falla Recurrente Detectada ({metricas.alertasRecurrentes[0].subsistema})
+                  </strong>
+                  <span style={styles.recurrentAlertSub}>
+                    {metricas.alertasRecurrentes[0].totalIncidencias} intervenciones correctivas registradas en este subsistema
+                  </span>
+                </div>
+              </div>
+              <p style={styles.recurrentAlertBody}>
+                <strong>Causas raíz previas:</strong>{' '}
+                {metricas.alertasRecurrentes[0].causasRaizPrevias.join(' · ')}
+              </p>
+              <p style={styles.recurrentAlertHint}>
+                💡 <strong>Recomendación antes de cerrar orden:</strong>{' '}
+                {metricas.alertasRecurrentes[0].sugerenciaRevision}
+              </p>
+            </div>
+          )}
+
           {/* SECCIÓN 1: FICHA TÉCNICA */}
           {seccionActiva === 'ficha' && (
             <div style={styles.specsCard}>
@@ -229,6 +318,67 @@ export default function FichaTecnicaModal({
               <h3 style={styles.serialTitle}>SN: {equipo.numero_serie}</h3>
               <p style={styles.semaforoDesc}>{semaforoTexto}</p>
 
+              {/* Controles de Semáforo y Ciclo de Mantenimiento */}
+              <div style={styles.semaforoControlBox}>
+                <div style={styles.semaforoControlRow}>
+                  <span style={styles.controlLabel}>Estado del Semáforo:</span>
+                  <div style={styles.semaforoSwitchGroup}>
+                    {(['verde', 'amarillo', 'rojo'] as EstadoSemaforo[]).map((est) => {
+                      const active = estadoSemaforo === est;
+                      const colors = {
+                        verde: { bg: '#dcfce7', color: '#065f46', dot: '#16a34a', label: 'Verde' },
+                        amarillo: { bg: '#fef9c3', color: '#854d0e', dot: '#ca8a04', label: 'Amarillo' },
+                        rojo: { bg: '#ffe4e6', color: '#9f1239', dot: '#e11d48', label: 'Rojo' },
+                      }[est];
+                      return (
+                        <button
+                          key={est}
+                          type="button"
+                          onClick={() => handleCambiarSemaforo(est)}
+                          style={{
+                            ...styles.semaforoSwitchBtn,
+                            background: active ? colors.bg : '#ffffff',
+                            color: active ? colors.color : '#475569',
+                            border: active ? `1.5px solid ${colors.dot}` : '1px solid rgba(255,255,255,0.9)',
+                            fontWeight: active ? 800 : 600,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: colors.dot,
+                              display: 'inline-block',
+                            }}
+                          />
+                          {colors.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ ...styles.semaforoControlRow, marginTop: '8px' }}>
+                  <span style={styles.controlLabel}>Ciclo programado (HU7):</span>
+                  <div style={styles.semaforoSwitchGroup}>
+                    {([3, 6, 12] as CicloMeses[]).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => handleCambiarCicloEquipo(c)}
+                        style={{
+                          ...styles.cicloPillBtn,
+                          ...(resumenSemaforo.cicloMeses === c ? styles.cicloPillBtnActive : {}),
+                        }}
+                      >
+                        {c}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div style={styles.specsGrid}>
                 <div style={styles.specItem}>
                   <span style={styles.specLabel}>Procesador</span>
@@ -243,8 +393,18 @@ export default function FichaTecnicaModal({
                   <span style={styles.specValue}>{equipo.almacenamiento || 'No especificado'}</span>
                 </div>
                 <div style={styles.specItem}>
-                  <span style={styles.specLabel}>Próximo Mant.</span>
+                  <span style={styles.specLabel}>Próximo Mant. ({resumenSemaforo.cicloMeses}m)</span>
                   <span style={styles.specValue}>{fechaProximoMantenimiento}</span>
+                </div>
+                <div style={styles.specItem}>
+                  <span style={styles.specLabel}>Último Ingeniero</span>
+                  <span style={styles.specValue}>{ultimoIngeniero}</span>
+                </div>
+                <div style={styles.specItem}>
+                  <span style={styles.specLabel}>Fiabilidad del Activo</span>
+                  <span style={styles.specValue}>
+                    {metricas.indiceFiabilidad}% ({metricas.preventivas}P / {metricas.correctivas}C)
+                  </span>
                 </div>
               </div>
 
@@ -304,7 +464,7 @@ export default function FichaTecnicaModal({
                 <h4 style={styles.serviceSectionTitle}>Servicio Técnico y Verificaciones</h4>
               </div>
               <p style={styles.serviceSectionSub}>
-                Inicia la orden de servicio o reanuda el checklist de inspección técnica (limpieza, ventiladores, pasta térmica, puertos, temperatura, diagnóstico S.M.A.R.T. y fotografías de evidencia).
+                Inicia la orden de servicio o reanuda el checklist de inspección técnica (limpieza, ventiladores, pasta térmica, puertos, temperatura, diagnóstico S.M.A.R.T. y fotografías de evidencia). Al cerrar la orden, el patrón Observer actualizará automáticamente la próxima fecha de mantenimiento, el semáforo y el análisis de causas raíz.
               </p>
               <button onClick={handleIniciarServicio} disabled={iniciandoServicio} style={styles.iniciarServicioBtn}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -315,23 +475,25 @@ export default function FichaTecnicaModal({
             </div>
           )}
 
-          {/* SECCIÓN 3: HISTORIAL DE MANTENIMIENTOS */}
+          {/* SECCIÓN 3: HISTORIAL DE SERVICIO Y FALLAS (HU9) */}
           {seccionActiva === 'historial' && (
             <div style={styles.historialSection}>
               <div style={styles.historialHeader}>
                 <div>
-                  <h3 style={styles.sectionHeading}>Historial de Mantenimientos</h3>
-                  <p style={styles.sectionSub}>Trazabilidad cronológica inversa y evidencias del servicio</p>
+                  <h3 style={styles.sectionHeading}>Historial de Servicio y Fallas</h3>
+                  <p style={styles.sectionSub}>
+                    Trazabilidad cronológica inversa, causas raíz y evidencias (Fiabilidad: {metricas.indiceFiabilidad}%)
+                  </p>
                 </div>
                 <button onClick={() => setShowAddForm(!showAddForm)} style={styles.addMaintenanceBtn}>
                   {showAddForm ? 'Cancelar' : '+ Registrar Mantenimiento'}
                 </button>
               </div>
 
-              {/* Formulario nuevo mantenimiento */}
+              {/* Formulario nuevo mantenimiento con Causa Raíz e Ingeniero Asignado */}
               {showAddForm && (
                 <form onSubmit={handleGuardarMantenimiento} style={styles.newForm}>
-                  <h4 style={styles.newFormTitle}>Nuevo Registro de Mantenimiento</h4>
+                  <h4 style={styles.newFormTitle}>Nuevo Registro de Mantenimiento y Causa Raíz</h4>
                   <div style={styles.formGrid}>
                     <div>
                       <label style={styles.label}>Fecha de Intervención</label>
@@ -366,18 +528,44 @@ export default function FichaTecnicaModal({
                         style={styles.input}
                       >
                         <option value="preventiva">Preventiva</option>
-                        <option value="correctiva">Correctiva</option>
+                        <option value="correctiva">Correctiva (Falla)</option>
                       </select>
                     </div>
                     <div>
-                      <label style={styles.label}>Técnico Responsable</label>
+                      <label style={styles.label}>Ciclo Próximo Mant. (HU7)</label>
+                      <select
+                        value={cicloForm}
+                        onChange={(e) => setCicloForm(Number(e.target.value) as CicloMeses)}
+                        style={styles.input}
+                      >
+                        <option value={3}>Cada 3 meses</option>
+                        <option value={6}>Cada 6 meses (Estándar)</option>
+                        <option value={12}>Cada 12 meses</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={styles.label}>Ingeniero Responsable Asignado</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        value={tecnico}
+                        onChange={(e) => setTecnico(e.target.value)}
+                        style={{ ...styles.input, flex: 1 }}
+                      >
+                        {directorioIngenieros.map((ing) => (
+                          <option key={ing.id} value={ing.nombreMostrar}>
+                            {ing.nombreMostrar} ({ing.especialidad.split(',')[0]})
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="text"
                         value={tecnico}
                         onChange={(e) => setTecnico(e.target.value)}
                         required
-                        placeholder="Nombre del técnico"
-                        style={styles.input}
+                        placeholder="O escribe nombre"
+                        style={{ ...styles.input, flex: 1 }}
                       />
                     </div>
                   </div>
@@ -388,10 +576,33 @@ export default function FichaTecnicaModal({
                       value={diagnostico}
                       onChange={(e) => setDiagnostico(e.target.value)}
                       required
-                      placeholder="Describe los hallazgos técnicos, pruebas ejecutadas y limpiezas aplicadas..."
-                      rows={3}
+                      placeholder="Describe los hallazgos técnicos, pruebas ejecutadas y reparaciones aplicadas..."
+                      rows={2}
                       style={{ ...styles.input, resize: 'vertical' }}
                     />
+                  </div>
+
+                  <div>
+                    <label style={styles.label}>Causa Raíz Identificada (HU9)</label>
+                    <input
+                      type="text"
+                      value={causaRaiz}
+                      onChange={(e) => setCausaRaiz(e.target.value)}
+                      placeholder="Ej. Ventilador con rodamiento trabado o thermal pad degradado"
+                      style={styles.input}
+                    />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                      {CAUSAS_RAIZ_COMUNES.map((sug) => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => setCausaRaiz(sug)}
+                          style={styles.causaChip}
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <button type="submit" disabled={guardando} style={styles.saveBtn}>
@@ -415,7 +626,15 @@ export default function FichaTecnicaModal({
                       <div style={styles.timelineHeader}>
                         <div style={styles.timelineSubsistema}>
                           <span style={styles.tagSubsistema}>{item.subsistema}</span>
-                          <span style={styles.tagTipo}>
+                          <span
+                            style={{
+                              ...styles.tagTipo,
+                              color: item.tipo_intervencion === 'correctiva' ? '#be123c' : '#065f46',
+                              background: item.tipo_intervencion === 'correctiva' ? '#ffe4e6' : '#dcfce7',
+                              padding: '3px 8px',
+                              borderRadius: '8px',
+                            }}
+                          >
                             {item.tipo_intervencion === 'correctiva' ? 'Correctivo' : 'Preventivo'}
                           </span>
                         </div>
@@ -425,6 +644,12 @@ export default function FichaTecnicaModal({
                       <div style={styles.timelineBody}>
                         <p style={styles.diagnosticoLabel}>Diagnóstico técnico:</p>
                         <p style={styles.diagnosticoText}>{item.diagnostico}</p>
+                        {item.causa_raiz && (
+                          <div style={styles.causaRaizBox}>
+                            <span style={styles.causaRaizLabel}>🔍 Causa raíz subyacente:</span>{' '}
+                            <span style={styles.causaRaizValue}>{item.causa_raiz}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Bloque de evidencias fotográficas (HU6 / Sprint 7) */}
@@ -467,7 +692,7 @@ export default function FichaTecnicaModal({
 
                       <div style={styles.timelineFooter}>
                         <span style={styles.tecnicoLabel}>
-                          Técnico responsable: <strong>{item.tecnico}</strong>
+                          Ingeniero responsable: <strong>{item.tecnico}</strong>
                         </span>
                       </div>
                     </div>
@@ -630,7 +855,49 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '18px',
+  },
+  recurrentAlertCard: {
+    background: 'linear-gradient(145deg, #fff1f2 0%, #ffe4e6 100%)',
+    border: '1.5px solid #fda4af',
+    borderRadius: '24px',
+    padding: '14px 16px',
+    color: '#9f1239',
+    boxShadow: '8px 10px 22px rgba(225, 150, 165, 0.35), inset 0 2px 4px #ffffff',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  recurrentAlertHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  recurrentAlertTitle: {
+    fontSize: '13px',
+    fontWeight: 800,
+    color: '#881337',
+    display: 'block',
+  },
+  recurrentAlertSub: {
+    fontSize: '11px',
+    color: '#be123c',
+    fontWeight: 700,
+  },
+  recurrentAlertBody: {
+    fontSize: '11.5px',
+    color: '#881337',
+    margin: 0,
+    lineHeight: '1.35',
+  },
+  recurrentAlertHint: {
+    fontSize: '11px',
+    color: '#9f1239',
+    background: 'rgba(255, 255, 255, 0.65)',
+    padding: '7px 10px',
+    borderRadius: '12px',
+    margin: 0,
+    lineHeight: '1.35',
   },
   specsCard: {
     background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
@@ -683,29 +950,76 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '12.5px',
     color: '#475569',
     fontWeight: 600,
-    margin: '0 0 16px 0',
+    margin: '0 0 12px 0',
+  },
+  semaforoControlBox: {
+    background: '#e4ebf8',
+    borderRadius: '18px',
+    padding: '10px 12px',
+    marginBottom: '14px',
+    boxShadow: 'inset 3px 3px 7px rgba(160, 176, 212, 0.55), inset -3px -3px 7px rgba(255, 255, 255, 0.9)',
+  },
+  semaforoControlRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  controlLabel: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#334155',
+  },
+  semaforoSwitchGroup: {
+    display: 'flex',
+    gap: '6px',
+  },
+  semaforoSwitchBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    padding: '5px 10px',
+    borderRadius: '12px',
+    fontSize: '11px',
+    cursor: 'pointer',
+    boxShadow: '2px 2px 6px rgba(148, 166, 212, 0.35)',
+  },
+  cicloPillBtn: {
+    padding: '4px 10px',
+    borderRadius: '10px',
+    border: 'none',
+    background: '#ffffff',
+    color: '#475569',
+    fontSize: '11px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  cicloPillBtnActive: {
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    color: '#ffffff',
   },
   specsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '12px',
+    gap: '10px',
     marginBottom: '18px',
   },
   specItem: {
     background: '#e4ebf8',
-    padding: '14px',
-    borderRadius: '22px',
+    padding: '12px 14px',
+    borderRadius: '20px',
     boxShadow: 'inset 4px 4px 9px rgba(160, 176, 212, 0.55), inset -4px -4px 9px rgba(255, 255, 255, 0.9)',
   },
   specLabel: {
-    fontSize: '11.5px',
+    fontSize: '11px',
     color: '#475569',
     fontWeight: 600,
     display: 'block',
-    marginBottom: '5px',
+    marginBottom: '4px',
   },
   specValue: {
-    fontSize: '13.5px',
+    fontSize: '13px',
     fontWeight: 800,
     color: '#172554',
     lineHeight: '1.3',
@@ -930,6 +1244,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxSizing: 'border-box',
     boxShadow: 'inset 3px 3px 6px rgba(160, 176, 212, 0.55), inset -3px -3px 6px rgba(255, 255, 255, 0.9)',
   },
+  causaChip: {
+    padding: '4px 8px',
+    fontSize: '10px',
+    fontWeight: 700,
+    color: '#1e40af',
+    background: '#dbeafe',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
   saveBtn: {
     background: 'linear-gradient(145deg, #34d399 0%, #10b981 100%)',
     color: 'white',
@@ -980,9 +1304,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '10px',
   },
   tagTipo: {
-    fontSize: '11px',
-    fontWeight: 700,
-    color: '#475569',
+    fontSize: '10.5px',
+    fontWeight: 800,
   },
   timelineFecha: {
     fontSize: '11.5px',
@@ -1007,6 +1330,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     margin: 0,
     lineHeight: '1.4',
+  },
+  causaRaizBox: {
+    marginTop: '8px',
+    paddingTop: '6px',
+    borderTop: '1px dashed rgba(148, 163, 184, 0.45)',
+    fontSize: '11.5px',
+    lineHeight: '1.35',
+  },
+  causaRaizLabel: {
+    fontWeight: 800,
+    color: '#1e40af',
+  },
+  causaRaizValue: {
+    fontWeight: 600,
+    color: '#334155',
   },
   evidenciasBlock: {
     background: '#f1f5ff',
@@ -1079,7 +1417,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#065f46',
     padding: '10px 16px',
     textAlign: 'center',
-    fontSize: '12.5px',
+    fontSize: '12px',
     fontWeight: 800,
     margin: '10px 20px 0 20px',
     borderRadius: '16px',

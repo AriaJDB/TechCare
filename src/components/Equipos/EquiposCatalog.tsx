@@ -4,7 +4,20 @@ import QRCode from 'react-qr-code';
 import RegisterEquipmentScreen from './RegisterEquipmentScreen';
 import QRScannerScreen from './QRScannerScreen';
 import FichaTecnicaModal from './FichaTecnicaModal';
+import PerfilUsuarioModal from '../Perfil/PerfilUsuarioModal';
 import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
+import {
+  getHistorialEquipo,
+  calcularResumenSemaforoEquipo,
+  establecerOverrideSemaforo,
+  type ResumenSemaforoEquipo,
+} from '../../utils/historialService';
+import { obtenerPerfilUsuario, type PerfilIngeniero } from '../../services/perfilService';
+import {
+  inicializarPermisosNotificacion,
+  dispararNotificacionVencimiento,
+} from '../../services/notificationService';
+import type { EstadoSemaforo } from '../../utils/mantenimiento';
 
 type VistaActual = 'catalogo' | 'nuevo' | 'escanear';
 
@@ -76,11 +89,27 @@ export default function EquiposCatalog({
   onLogout: () => void;
 }) {
   const [equipos, setEquipos] = useState<any[]>([]);
+  const [resumenMap, setResumenMap] = useState<Record<string, ResumenSemaforoEquipo>>({});
   const [vista, setVista] = useState<VistaActual>('catalogo');
   const [loading, setLoading] = useState(true);
   const [equipoAEditar, setEquipoAEditar] = useState<any>(null);
   const [verQR, setVerQR] = useState<string | null>(null);
   const [equipoFicha, setEquipoFicha] = useState<any | null>(null);
+  const [showPerfilModal, setShowPerfilModal] = useState(false);
+  const [perfilUsuario, setPerfilUsuario] = useState<PerfilIngeniero>(() =>
+    obtenerPerfilUsuario(session)
+  );
+  const [filtroSemaforo, setFiltroSemaforo] = useState<EstadoSemaforo | 'todos'>('todos');
+
+  const calcularResumenesParaEquipos = async (listaEquipos: any[]) => {
+    const nuevoMapa: Record<string, ResumenSemaforoEquipo> = {};
+    for (const eq of listaEquipos) {
+      const clave = eq.id || eq.id_equipo || eq.numero_serie || eq.codigo_qr;
+      const hist = await getHistorialEquipo(eq);
+      nuevoMapa[clave] = calcularResumenSemaforoEquipo(eq, hist);
+    }
+    setResumenMap(nuevoMapa);
+  };
 
   const fetchEquipos = async () => {
     setLoading(true);
@@ -91,6 +120,7 @@ export default function EquiposCatalog({
 
     if (!error && data) {
       setEquipos(data);
+      await calcularResumenesParaEquipos(data);
     }
     setLoading(false);
   };
@@ -145,26 +175,84 @@ export default function EquiposCatalog({
     );
   };
 
+  const handleCambiarSemaforoDirecto = async (equipo: any, nuevoEstado: EstadoSemaforo) => {
+    const clave = equipo.id || equipo.id_equipo || equipo.numero_serie || equipo.codigo_qr;
+    establecerOverrideSemaforo(clave, nuevoEstado);
+    await calcularResumenesParaEquipos(equipos);
+
+    const resumenActual = resumenMap[clave];
+    const ultimoIng = resumenActual?.ultimoIngeniero || perfilUsuario.nombreMostrar || 'Ing. Cinthia López';
+    const proxFecha = resumenActual?.proximaFecha || '2027-03-18';
+
+    if (nuevoEstado === 'rojo') {
+      await dispararNotificacionVencimiento({
+        idEquipo: clave,
+        numeroSerie: equipo.numero_serie || 'SN-EQUIPO',
+        tipoDispositivo: equipo.tipo_dispositivo || 'Equipo',
+        ultimoIngeniero: ultimoIng,
+        proximaFecha: proxFecha,
+        estadoSemaforo: 'rojo',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchEquipos();
+    inicializarPermisosNotificacion();
   }, []);
+
+  const conteoSemaforo = {
+    verde: 0,
+    amarillo: 0,
+    rojo: 0,
+  };
+  for (const eq of equipos) {
+    const clave = eq.id || eq.id_equipo || eq.numero_serie || eq.codigo_qr;
+    const est = resumenMap[clave]?.estadoSemaforo || 'verde';
+    conteoSemaforo[est] += 1;
+  }
+
+  const equiposFiltrados =
+    filtroSemaforo === 'todos'
+      ? equipos
+      : equipos.filter((eq) => {
+          const clave = eq.id || eq.id_equipo || eq.numero_serie || eq.codigo_qr;
+          return (resumenMap[clave]?.estadoSemaforo || 'verde') === filtroSemaforo;
+        });
 
   return (
     <div style={styles.container}>
-      {/* Encabezado Principal */}
+      {/* Encabezado Principal con Acceso a Perfil de Ingeniero */}
       <div style={styles.header}>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={styles.title}>Panel TechCare</h2>
-          <p style={styles.subtitle}>{session.user.email}</p>
+          <p style={styles.subtitle}>
+            {perfilUsuario.nombreMostrar} · <span style={{ opacity: 0.8 }}>{session.user.email}</span>
+          </p>
         </div>
-        <button onClick={onLogout} style={styles.logoutBtn}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#be123c" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-          <span>Salir</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowPerfilModal(true)}
+            style={styles.profileBtn}
+            title="Editar perfil de usuario y asignación de ingenieros"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span>Perfil</span>
+          </button>
+
+          <button onClick={onLogout} style={styles.logoutBtn}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#be123c" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span>Salir</span>
+          </button>
+        </div>
       </div>
 
       {/* Barra de Navegación / Pestañas Claymorphism */}
@@ -304,30 +392,119 @@ export default function EquiposCatalog({
             </button>
           </div>
 
+          {/* Barra Resumen de Semáforo del Panel Principal (Sprint 8 - HU8) */}
+          {equipos.length > 0 && (
+            <div style={styles.semaforoSummaryBar}>
+              <button
+                type="button"
+                onClick={() => setFiltroSemaforo('todos')}
+                style={{
+                  ...styles.semaforoFilterChip,
+                  ...(filtroSemaforo === 'todos' ? styles.semaforoFilterChipActive : {}),
+                }}
+              >
+                Todos ({equipos.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroSemaforo(filtroSemaforo === 'verde' ? 'todos' : 'verde')}
+                style={{
+                  ...styles.semaforoFilterChip,
+                  background: filtroSemaforo === 'verde' ? '#dcfce7' : '#ffffff',
+                  color: '#065f46',
+                }}
+              >
+                <span style={{ ...styles.miniDot, backgroundColor: '#16a34a' }} />
+                Al día ({conteoSemaforo.verde})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroSemaforo(filtroSemaforo === 'amarillo' ? 'todos' : 'amarillo')}
+                style={{
+                  ...styles.semaforoFilterChip,
+                  background: filtroSemaforo === 'amarillo' ? '#fef9c3' : '#ffffff',
+                  color: '#854d0e',
+                }}
+              >
+                <span style={{ ...styles.miniDot, backgroundColor: '#ca8a04' }} />
+                Por vencer ({conteoSemaforo.amarillo})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroSemaforo(filtroSemaforo === 'rojo' ? 'todos' : 'rojo')}
+                style={{
+                  ...styles.semaforoFilterChip,
+                  background: filtroSemaforo === 'rojo' ? '#ffe4e6' : '#ffffff',
+                  color: '#9f1239',
+                }}
+              >
+                <span style={{ ...styles.miniDot, backgroundColor: '#e11d48' }} />
+                Vencidos ({conteoSemaforo.rojo})
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div style={styles.emptyState}>
               <p style={{ color: '#475569', fontWeight: 700, fontSize: '14px' }}>Cargando catálogo de equipos...</p>
             </div>
-          ) : equipos.length === 0 ? (
+          ) : equiposFiltrados.length === 0 ? (
             <div style={styles.emptyState}>
-              <p style={{ color: '#172554', fontWeight: 800, marginTop: '4px', fontSize: '16px' }}>No hay equipos registrados aún</p>
+              <p style={{ color: '#172554', fontWeight: 800, marginTop: '4px', fontSize: '16px' }}>
+                {equipos.length === 0 ? 'No hay equipos registrados aún' : 'No hay equipos en este estado del semáforo'}
+              </p>
               <p style={{ color: '#64748b', fontSize: '12.5px', textAlign: 'center', maxWidth: '300px', marginTop: '4px' }}>
-                Da de alta un equipo con "Nuevo Equipo" para generar su código QR o prueba el escáner.
+                {equipos.length === 0
+                  ? 'Da de alta un equipo con "Nuevo Equipo" para generar su código QR o prueba el escáner.'
+                  : 'Selecciona "Todos" para volver a ver el inventario completo.'}
               </p>
               <div style={{ display: 'flex', gap: '10px', marginTop: '18px' }}>
-                <button onClick={() => setVista('nuevo')} style={styles.fichaPrimaryBtn}>
-                  + Registrar primer equipo
-                </button>
-                <button onClick={() => setVista('escanear')} style={styles.whiteClayActionBtn}>
-                  Probar Escáner QR
-                </button>
+                {equipos.length === 0 ? (
+                  <>
+                    <button onClick={() => setVista('nuevo')} style={styles.fichaPrimaryBtn}>
+                      + Registrar primer equipo
+                    </button>
+                    <button onClick={() => setVista('escanear')} style={styles.whiteClayActionBtn}>
+                      Probar Escáner QR
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => setFiltroSemaforo('todos')} style={styles.fichaPrimaryBtn}>
+                    Ver todos los equipos
+                  </button>
+                )}
               </div>
             </div>
           ) : (
             <div style={styles.grid}>
-              {equipos.map((equipo) => {
-                const idVal = equipo.id || equipo.id_equipo;
+              {equiposFiltrados.map((equipo) => {
+                const idVal = equipo.id || equipo.id_equipo || equipo.numero_serie || equipo.codigo_qr;
                 const isQRExpanded = verQR === idVal;
+                const resumen = resumenMap[idVal];
+                const estadoSem: EstadoSemaforo = resumen?.estadoSemaforo || 'verde';
+                const proxFecha = resumen?.proximaFecha || '2027-03-18';
+                const ultimoIng = resumen?.ultimoIngeniero || 'Ing. Cinthia López';
+
+                const semStyle = {
+                  verde: {
+                    bg: 'linear-gradient(145deg, #dcfce7 0%, #bbf7d0 100%)',
+                    text: '#065f46',
+                    dot: '#16a34a',
+                    label: 'AL DÍA',
+                  },
+                  amarillo: {
+                    bg: 'linear-gradient(145deg, #fef9c3 0%, #fde047 100%)',
+                    text: '#854d0e',
+                    dot: '#ca8a04',
+                    label: 'POR VENCER',
+                  },
+                  rojo: {
+                    bg: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
+                    text: '#9f1239',
+                    dot: '#e11d48',
+                    label: 'VENCIDO',
+                  },
+                }[estadoSem];
 
                 return (
                   <div key={idVal} style={styles.card}>
@@ -335,12 +512,55 @@ export default function EquiposCatalog({
                     <div style={styles.cardHeader}>
                       <div style={styles.deviceTypeWrap}>
                         <DeviceIcon tipo={equipo.tipo_dispositivo} />
-                        <span style={styles.deviceTypeTitle}>{equipo.tipo_dispositivo || 'Equipo'}</span>
+                        <div>
+                          <span style={styles.deviceTypeTitle}>{equipo.tipo_dispositivo || 'Equipo'}</span>
+                          <span style={{ display: 'block', fontSize: '11px', color: '#475569', fontWeight: 600 }}>
+                            SN: {equipo.numero_serie}
+                          </span>
+                        </div>
                       </div>
-                      <span style={styles.serialPill}>SN: {equipo.numero_serie}</span>
+
+                      {/* Semáforo interactivo en tarjeta */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px' }}>
+                        <span
+                          style={{
+                            ...styles.cardSemaforoPill,
+                            background: semStyle.bg,
+                            color: semStyle.text,
+                          }}
+                        >
+                          <span style={{ ...styles.miniDot, backgroundColor: semStyle.dot }} />
+                          {semStyle.label}
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {(['verde', 'amarillo', 'rojo'] as EstadoSemaforo[]).map((st) => {
+                            const dotColor = st === 'verde' ? '#16a34a' : st === 'amarillo' ? '#ca8a04' : '#e11d48';
+                            const isSelected = estadoSem === st;
+                            return (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => handleCambiarSemaforoDirecto(equipo, st)}
+                                title={`Cambiar semáforo a ${st.toUpperCase()}`}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  border: isSelected ? '2px solid #172554' : '1.5px solid #ffffff',
+                                  backgroundColor: dotColor,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  opacity: isSelected ? 1 : 0.45,
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.18)',
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Recessed Specs Box */}
+                    {/* Recessed Specs Box + Próxima Fecha e Ingeniero */}
                     <div style={styles.specsRecessedBox}>
                       <div style={styles.specRow}>
                         <span style={styles.specLabel}>CPU</span>
@@ -353,6 +573,22 @@ export default function EquiposCatalog({
                       <div style={styles.specRow}>
                         <span style={styles.specLabel}>Disco</span>
                         <span style={styles.specVal}>{equipo.almacenamiento || 'No especificado'}</span>
+                      </div>
+                      <div
+                        style={{
+                          ...styles.specRow,
+                          paddingTop: '6px',
+                          borderTop: '1px dashed rgba(148, 163, 184, 0.45)',
+                        }}
+                      >
+                        <span style={{ ...styles.specLabel, width: '92px' }}>Próx. Mant.</span>
+                        <span style={{ ...styles.specVal, color: estadoSem === 'rojo' ? '#be123c' : '#1e40af' }}>
+                          {proxFecha} ({resumen?.cicloMeses || 6}m)
+                        </span>
+                      </div>
+                      <div style={styles.specRow}>
+                        <span style={{ ...styles.specLabel, width: '92px' }}>Último Ing.</span>
+                        <span style={styles.specVal}>{ultimoIng}</span>
                       </div>
                     </div>
 
@@ -400,7 +636,10 @@ export default function EquiposCatalog({
       {equipoFicha && (
         <FichaTecnicaModal
           equipo={equipoFicha}
-          onClose={() => setEquipoFicha(null)}
+          onClose={() => {
+            setEquipoFicha(null);
+            calcularResumenesParaEquipos(equipos);
+          }}
           onEdit={(eq) => {
             setEquipoFicha(null);
             handleEdit(eq);
@@ -409,7 +648,19 @@ export default function EquiposCatalog({
             await handleDelete(id);
             setEquipoFicha(null);
           }}
+          onSemaforoChange={() => calcularResumenesParaEquipos(equipos)}
           currentUserEmail={session.user.email}
+        />
+      )}
+
+      {/* Modal Perfil de Usuario e Ingenieros */}
+      {showPerfilModal && (
+        <PerfilUsuarioModal
+          session={session}
+          onClose={() => setShowPerfilModal(false)}
+          onPerfilActualizado={(nuevoPerfil) => {
+            setPerfilUsuario(nuevoPerfil);
+          }}
         />
       )}
     </div>
@@ -430,9 +681,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '8px',
     marginBottom: '16px',
     background: 'linear-gradient(145deg, #f8faff 0%, #edf2ff 100%)',
-    padding: '18px 20px',
+    padding: '16px 16px',
     borderRadius: '28px',
     border: '1.5px solid rgba(255, 255, 255, 0.9)',
     boxShadow:
@@ -440,36 +692,53 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   title: {
     color: '#172554',
-    fontSize: '21px',
+    fontSize: '20px',
     fontWeight: 800,
-    margin: '0 0 3px 0',
+    margin: '0 0 2px 0',
     letterSpacing: '-0.3px',
   },
   subtitle: {
     color: '#475569',
-    fontSize: '12.5px',
-    fontWeight: 600,
+    fontSize: '11.5px',
+    fontWeight: 700,
     margin: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  profileBtn: {
+    background: 'linear-gradient(145deg, #ffffff 0%, #edf2ff 100%)',
+    color: '#2563eb',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    padding: '9px 12px',
+    borderRadius: '16px',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: '12px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    boxShadow: '5px 6px 12px rgba(148, 166, 212, 0.4), inset 0 2px 3px #ffffff',
   },
   logoutBtn: {
     background: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
     color: '#be123c',
     border: '1px solid rgba(255, 255, 255, 0.7)',
-    padding: '10px 16px',
-    borderRadius: '18px',
+    padding: '9px 12px',
+    borderRadius: '16px',
     cursor: 'pointer',
     fontWeight: 800,
-    fontSize: '13px',
+    fontSize: '12px',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '5px',
     boxShadow:
       '6px 8px 16px rgba(225, 150, 165, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.85), inset 0 2px 4px rgba(255, 255, 255, 0.8), inset 0 -3px 6px rgba(244, 63, 94, 0.2)',
   },
   navigationTabs: {
     display: 'flex',
     gap: '8px',
-    marginBottom: '20px',
+    marginBottom: '18px',
     background: '#e3eaf8',
     padding: '7px',
     borderRadius: '26px',
@@ -504,7 +773,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '16px',
+    marginBottom: '12px',
     padding: '0 4px',
   },
   sectionTitle: {
@@ -528,6 +797,38 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '7px',
     boxShadow:
       '8px 10px 20px rgba(148, 166, 212, 0.42), -5px -5px 14px rgba(255, 255, 255, 0.95), inset 0 2px 4px #ffffff, inset 0 -3px 5px rgba(199, 210, 245, 0.45)',
+  },
+  semaforoSummaryBar: {
+    display: 'flex',
+    gap: '6px',
+    marginBottom: '16px',
+    overflowX: 'auto',
+    paddingBottom: '4px',
+  },
+  semaforoFilterChip: {
+    padding: '7px 11px',
+    borderRadius: '14px',
+    border: '1px solid rgba(255, 255, 255, 0.9)',
+    background: '#ffffff',
+    color: '#334155',
+    fontSize: '11px',
+    fontWeight: 800,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    whiteSpace: 'nowrap',
+    boxShadow: '4px 4px 10px rgba(148, 166, 212, 0.35)',
+  },
+  semaforoFilterChipActive: {
+    background: 'linear-gradient(145deg, #4f86f7 0%, #2563eb 100%)',
+    color: '#ffffff',
+  },
+  miniDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    display: 'inline-block',
   },
   listContainer: {
     flex: 1,
@@ -584,14 +885,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '18px',
     textTransform: 'capitalize',
   },
-  serialPill: {
-    fontSize: '11.5px',
-    fontWeight: 700,
-    color: '#334155',
-    background: '#e3eaf8',
-    padding: '7px 13px',
-    borderRadius: '14px',
-    boxShadow: 'inset 3px 3px 6px rgba(163, 179, 214, 0.55), inset -3px -3px 6px rgba(255, 255, 255, 0.9)',
+  cardSemaforoPill: {
+    fontSize: '10.5px',
+    fontWeight: 800,
+    padding: '5px 11px',
+    borderRadius: '12px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
+    boxShadow: '3px 4px 10px rgba(148, 166, 212, 0.35), inset 0 1px 2px #ffffff',
   },
   specsRecessedBox: {
     background: '#e4ebf8',
@@ -599,14 +901,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '14px 16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '8px',
     marginBottom: '16px',
     boxShadow: 'inset 5px 5px 10px rgba(160, 176, 212, 0.55), inset -5px -5px 10px rgba(255, 255, 255, 0.9)',
   },
   specRow: {
     display: 'flex',
     alignItems: 'flex-start',
-    fontSize: '13px',
+    fontSize: '12.5px',
     lineHeight: '1.35',
   },
   specLabel: {
@@ -668,19 +970,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'center',
     boxShadow:
       '6px 6px 14px rgba(155, 172, 212, 0.4), -4px -4px 10px rgba(255, 255, 255, 0.95), inset 0 2px 3px #ffffff, inset 0 -2px 4px rgba(203, 213, 235, 0.45)',
-  },
-  dangerClayActionBtn: {
-    padding: '10px 6px',
-    background: 'linear-gradient(145deg, #ffe4e6 0%, #fecdd3 100%)',
-    color: '#be123c',
-    border: '1px solid rgba(255, 255, 255, 0.7)',
-    borderRadius: '16px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: 800,
-    textAlign: 'center',
-    boxShadow:
-      '6px 6px 14px rgba(225, 150, 165, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.85), inset 0 2px 3px rgba(255, 255, 255, 0.8), inset 0 -2px 4px rgba(244, 63, 94, 0.2)',
   },
   cardDownloadBtn: {
     flex: 1,

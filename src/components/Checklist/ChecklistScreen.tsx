@@ -366,6 +366,8 @@ export const ChecklistScreen: React.FC<ChecklistScreenProps> = ({
         <CierreOrdenModal
           items={items}
           isCompleto={isChecklistCompleto}
+          equipo={equipo}
+          idOrden={idOrden}
           onCerrarOrden={cerrarOrden}
           onClose={() => setActiveModal(null)}
           onSuccess={handleCierreExitoso}
