@@ -1,73 +1,53 @@
-# TechCare
+# TechCare — Sistema Móvil de Gestión de Mantenimiento Preventivo y Trazabilidad Técnica
 
-![CI](https://github.com/ORG/techcare/actions/workflows/ci.yml/badge.svg)
+Aplicación móvil y web progresiva desarrollada con **React + TypeScript + Vite**, empaquetada con **Capacitor** para Android y respaldada por **Supabase** (PostgreSQL, Auth y Storage).
 
-Sistema móvil de gestión de mantenimiento preventivo y trazabilidad técnica para equipos de cómputo (laptops, desktops, servidores), dirigido a técnicos y administradores de TI. Permite registrar equipos con código QR, ejecutar checklists guiados de servicio, documentar evidencia fotográfica, calcular automáticamente el próximo mantenimiento y detectar fallas recurrentes por subsistema.
+> **Estado del Proyecto:** MVP 100% completado e integrado (Sprints 1 al 10 — Historias de Usuario HU1 a HU9).
 
-**Materia:** Desarrollo Móvil Integral — Décimo Cuatrimestre, DS03SV-25
-**Universidad Tecnológica de San Juan del Río**
+---
 
-## Equipo
+## Módulos Implementados del MVP
 
-| Integrante | Rol Scrum |
-|---|---|
-| Ariadna Juárez Argüello | Product Owner |
-| Cinthia López Álvarez | Scrum Master |
-| Gabriel Flores Argüello | Developer Full Stack |
-| Edgar Alegría Alcántara | Development Team |
+1. **Módulo 1 · Autenticación, Biometría y Perfiles de Ingeniero (HU1):**
+   * Inicio de sesión y registro con Supabase Auth, inicio rápido con huella dactilar (`@capgo/capacitor-native-biometric`) y gestión de perfil de usuario/ingeniero con plantilla de asignación técnica.
+2. **Módulo 2 · Catálogo de Equipos y Generación de Etiquetas QR (HU2):**
+   * Registro y administración de activos (*Laptop*, *Desktop*, *Servidor*) con validación de número de serie único, generación automática de código QR y guardado de etiqueta física (600×360 px) en la galería del teléfono (álbum *TechCare*).
+3. **Módulo 3 · Escáner de Código QR Instantáneo (HU3):**
+   * Lectura mediante cámara trasera en tiempo real, análisis desde imagen de galería y consulta manual por código o serie.
+4. **Módulo 4 · Checklist Interactivo de Mantenimiento — Partes 1 y 2 (HU4 / HU5):**
+   * Verificaciones físicas (*limpieza*, *ventiladores*, *pasta térmica*) y lógicas (*inspección de puertos físicos*, *temperaturas pre/post con $\Delta^\circ\text{C}$*, *diagnóstico S.M.A.R.T.*), bloqueando el cierre si existen tareas obligatorias pendientes (TC06).
+5. **Módulo 5 · Bitácora Fotográfica de Evidencias (HU6):**
+   * Captura y compresión automática de hasta 3 fotografías por orden de servicio (`antes`, `proceso`, `despues`) vinculadas al historial del activo.
+6. **Módulo 6 · Programación, Semáforo de Estado, Notificaciones y Causa Raíz (HU7 / HU8 / HU9):**
+   * Cálculo automático de próxima fecha de mantenimiento (3, 6 o 12 meses), semáforo visual (*Verde*, *Amarillo*, *Rojo*), aplicación del **Patrón de Diseño Observer** al cierre de órdenes, notificaciones en pantalla de bloqueo dirigidas al último ingeniero responsable y detección automática de **Fallas Recurrentes por Subsistema** (`>= 2` intervenciones correctivas).
 
-## Stack
+---
 
-- **Frontend:** React + Vite + TypeScript, empaquetado a móvil con Capacitor (Android/iOS)
-- **Backend / BaaS:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
-- **Monitoreo:** Firebase Crashlytics / Sentry
-- **Distribución:** Firebase App Distribution (alfa/beta), Google Play Console (producción)
+## Documentación por Sprint
 
-## Cómo construir y ejecutar
+* [Sprint 7 · Bitácora Fotográfica de Evidencias (HU6)](./docs/Sprint7_Documentacion.md)
+* [Sprint 8 · Programación, Semáforo de Estado, Patrón Observer y Notificaciones (HU7 / HU8)](./docs/Sprint8_Documentacion.md)
+* [Sprint 9 · Historial de Fallas, Causa Raíz, Perfil de Ingenieros e Integración General (HU9)](./docs/Sprint9_Documentacion.md)
+* [Sprint 10 · Validación en Dispositivos, Manual de Usuario y Cierre del MVP](./docs/Sprint10_Manual_Usuario_y_Cierre.md)
 
-```bash
-npm install
-npm run dev          # servidor de desarrollo (Vite)
-npm run build         # build de producción
-npx cap sync           # sincroniza el build web al proyecto nativo
-npx cap open android   # abre el proyecto en Android Studio
-```
+---
 
-Variables de entorno requeridas en `.env` (ver `.env.example`):
+## Requisitos e Instalación
 
-```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-```
+* **Node.js** 20 LTS o superior y **npm**.
+* Proyecto en **Supabase** configurado en el archivo `.env`:
+  ```env
+  VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+  VITE_SUPABASE_ANON_KEY=tu_clave_publica_anon
+  ```
 
-## Estructura del repositorio
+### Comandos Disponibles
 
-```
-/docs      # documentación del proyecto (planeación, plan DevOps)
-/app       # código de la app móvil (React + Vite + Capacitor)
-/ci        # scripts auxiliares de CI
-README.md
-```
-
-## Ramas y versionamiento
-
-- `main` — estable, protegida, solo recibe merges vía Pull Request aprobado
-- `develop` — integración de funcionalidades terminadas
-- `feature/*`, `bugfix/*`, `hotfix/*` — ramas de trabajo (`tipo/nombre-corto-descriptivo`)
-- Commits siguiendo [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, …)
-- Tags semánticos `v0.x.y` al cerrar una versión estable
-
-Detalle completo en [`docs/Plan_DevOps_TechCare.docx`](docs/Plan_DevOps_TechCare.docx).
-
-## Board y planeación
-
-- Tablón de trabajo: GitHub Projects — columnas Backlog, To-Do, In-Progress, Review, Done
-- Documento de planeación Scrum y Plan DevOps: carpeta `/docs`
-
-## Comunicación
-
-El equipo usa **Discord** como herramienta principal (ver dictamen en `docs/Plan_DevOps_TechCare.docx`, Anexo A). Canales: `#anuncios`, `#dev`, `#qa`, `#ops`, `#dudas`, `#random`.
-
-## Demo
-
-Enlace a la demo del mapa DevOps, el board y la herramienta de comunicación configurada: *(agregar enlace del video de 3–5 min)*
+| Comando | Descripción |
+| :--- | :--- |
+| `npm install` | Instala las dependencias del proyecto. |
+| `npm run dev` | Inicia el servidor de desarrollo en `http://localhost:5173`. |
+| `npm run test:unit` | Ejecuta las 9 suites de pruebas unitarias y de integración con Jest (83 pruebas). |
+| `npm run build` | Compila TypeScript y genera el bundle de producción en `dist/`. |
+| `npx cap sync android` | Sincroniza el build web y plugins nativos con el proyecto Android. |
+| `npx cap open android` | Abre el proyecto nativo en Android Studio para generar el APK. |

@@ -1,0 +1,66 @@
+:root {
+  --clay-bg-start: #dce5ff;
+  --clay-bg-mid: #e6edff;
+  --clay-bg-end: #d4e0ff;
+  --clay-surface: #f4f7ff;
+  --clay-card: #f8faff;
+  --clay-recessed: #e5ecf9;
+  --clay-text-primary: #172554;
+  --clay-text-secondary: #475569;
+  --clay-text-muted: #64748b;
+  --clay-blue: #2563eb;
+  --clay-blue-light: #4f86f7;
+  color: var(--clay-text-primary);
+  background: linear-gradient(145deg, var(--clay-bg-start) 0%, var(--clay-bg-mid) 50%, var(--clay-bg-end) 100%);
+  font-synthesis: none;
+  text-rendering: optimizelegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Plus Jakarta Sans', Segoe UI, Roboto, system-ui, -apple-system, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  color: #1e293b;
+  background: linear-gradient(145deg, #d8e2ff 0%, #e8eeff 50%, #cfdbff 100%);
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+p {
+  margin: 0;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanAnimation {
+  0%, 100% {
+    top: 10%;
+  }
+  50% {
+    top: 86%;
+  }
+}

@@ -1,0 +1,38 @@
+# Dependencias
+node_modules/
+
+# Archivos de compilación web y Vite
+dist/
+build/
+*.apk
+*.aab
+
+# Variables de entorno y credenciales
+.env
+.env.local
+.env.test
+
+# Artefactos de compilación nativa (Capacitor / Android / iOS)
+android/.gradle/
+android/app/build/
+android/build/
+ios/DerivedData/
+ios/App/Pods/
+
+# Logs de npm y Gradle
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.gradle/
+
+# Archivos del sistema operativo e IDE
+.DS_Store
+Thumbs.db
+*.suo
+*.iml
+.idea/
+.vscode/
+
+# Cobertura de pruebas y análisis estático
+coverage/
+.scannerwork/
