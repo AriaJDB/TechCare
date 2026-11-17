@@ -6,6 +6,7 @@ dist/
 build/
 *.apk
 *.aab
+apk-sprint7/
 
 # Variables de entorno y credenciales (¡Muy importante por seguridad!)
 .env

@@ -4,6 +4,7 @@ import { getHistorialEquipo, agregarMantenimiento, type MantenimientoRecord } fr
 import { descargarEtiquetaQR, imprimirEtiquetaQR } from '../../utils/qrExporter';
 import { calcularProximaFecha, calcularSemaforo, type CicloMeses, type EstadoSemaforo } from '../../utils/mantenimiento';
 import { iniciarOrden } from '../../services/checklistService';
+import { ETAPAS_INFO, type EvidenciaItem } from '../../services/evidenciasService';
 import ChecklistScreen from '../Checklist/ChecklistScreen';
 
 interface FichaTecnicaProps {
@@ -34,6 +35,7 @@ export default function FichaTecnicaModal({
   const [idOrdenActiva, setIdOrdenActiva] = useState<string | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
   const [iniciandoServicio, setIniciandoServicio] = useState(false);
+  const [lightboxEvidencia, setLightboxEvidencia] = useState<EvidenciaItem | null>(null);
 
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
@@ -384,6 +386,43 @@ export default function FichaTecnicaModal({
                         <p style={styles.diagnosticoText}>{reg.diagnostico}</p>
                       </div>
 
+                      {reg.evidencias && reg.evidencias.length > 0 && (
+                        <div style={styles.evidenciasBlock}>
+                          <div style={styles.evidenciasHeaderRow}>
+                            <span style={styles.evidenciasTitle}>
+                              Evidencia Fotográfica ({reg.evidencias.length}/3)
+                            </span>
+                          </div>
+                          <div style={styles.evidenciasRow}>
+                            {reg.evidencias.map((ev) => {
+                              const conf = ETAPAS_INFO[ev.etapa] || ETAPAS_INFO.antes;
+                              return (
+                                <div
+                                  key={ev.id_evidencia}
+                                  style={styles.evidenciaThumbCard}
+                                  onClick={() => setLightboxEvidencia(ev)}
+                                >
+                                  <img
+                                    src={ev.signed_url || ev.url_imagen}
+                                    alt={`Evidencia ${ev.etapa}`}
+                                    style={styles.evidenciaThumbImg}
+                                  />
+                                  <span
+                                    style={{
+                                      ...styles.evidenciaStageTag,
+                                      background: conf.bgClay,
+                                      color: conf.color,
+                                    }}
+                                  >
+                                    {ev.etapa.toUpperCase()}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div style={styles.timelineFooter}>
                         <span style={styles.tecnicoLabel}>
                           👷 Técnico responsable: <strong>{reg.tecnico}</strong>
@@ -408,6 +447,31 @@ export default function FichaTecnicaModal({
             Volver al Catálogo
           </button>
         </div>
+
+        {/* Lightbox para ampliar fotografía de evidencia */}
+        {lightboxEvidencia && (
+          <div style={styles.lightboxOverlay} onClick={() => setLightboxEvidencia(null)}>
+            <div style={styles.lightboxCard} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.lightboxHeader}>
+                <strong style={{ color: '#1e293b', fontSize: '14px' }}>
+                  Evidencia: {ETAPAS_INFO[lightboxEvidencia.etapa]?.titulo || lightboxEvidencia.etapa}
+                </strong>
+                <button
+                  type="button"
+                  onClick={() => setLightboxEvidencia(null)}
+                  style={styles.lightboxCloseBtn}
+                >
+                  ✕
+                </button>
+              </div>
+              <img
+                src={lightboxEvidencia.signed_url || lightboxEvidencia.url_imagen}
+                alt={lightboxEvidencia.etapa}
+                style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '16px', display: 'block' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -879,5 +943,100 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     boxShadow: '0 4px 8px rgba(37, 99, 235, 0.3)',
     transition: 'background 0.2s ease'
+  },
+  evidenciasBlock: {
+    background: '#0f172a',
+    borderRadius: '14px',
+    padding: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    border: '1px solid rgba(96, 165, 250, 0.25)',
+    marginTop: '6px'
+  },
+  evidenciasHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '4px'
+  },
+  evidenciasTitle: {
+    fontSize: '11.5px',
+    fontWeight: 700,
+    color: '#93c5fd'
+  },
+  evidenciasRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '8px'
+  },
+  evidenciaThumbCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    cursor: 'pointer'
+  },
+  evidenciaThumbImg: {
+    width: '100%',
+    height: '68px',
+    objectFit: 'cover',
+    borderRadius: '10px',
+    border: '1.5px solid rgba(96, 165, 250, 0.3)',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)'
+  },
+  evidenciaStageTag: {
+    fontSize: '9.5px',
+    fontWeight: 800,
+    padding: '2px 7px',
+    borderRadius: '8px'
+  },
+  lightboxOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(7, 11, 20, 0.9)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+    padding: '16px'
+  },
+  lightboxCard: {
+    width: '100%',
+    maxWidth: '460px',
+    background: '#ffffff',
+    borderRadius: '24px',
+    padding: '16px',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  },
+  lightboxHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    color: '#1e293b',
+    fontSize: '14px'
+  },
+  lightboxCloseBtn: {
+    background: '#f1f5f9',
+    border: 'none',
+    color: '#475569',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 };
